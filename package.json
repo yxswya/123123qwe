@@ -9,7 +9,9 @@
     "elysia": "latest"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@antfu/eslint-config": "^7.7.0",
+    "bun-types": "latest",
+    "eslint": "^10.0.3"
   },
   "module": "src/index.js"
 }
