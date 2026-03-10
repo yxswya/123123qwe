@@ -18,4 +18,8 @@ export const userRoutes = new Elysia({ prefix: '/user' })
                 message: `Welcome back, ${user?.username}`,
                 data: user,
             }
+        }, {
+            detail: {
+                summary: '获取用户信息',
+            },
         }))

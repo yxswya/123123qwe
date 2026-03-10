@@ -26,8 +26,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             username: t.String(),
             password: t.String(),
         }),
+        detail: {
+            summary: '账号登陆',
+        },
     })
     .post('/logout', ({ cookie: { auth } }) => {
         auth.remove() // 清除 Cookie
         return { message: 'Logged out' }
+    }, {
+        detail: {
+            summary: '退出登录',
+        },
     })
