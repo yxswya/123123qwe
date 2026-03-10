@@ -48,3 +48,6 @@ yarn.lock
 
 # drizzle orm
 drizzle/
+
+# db
+sqlite.db
