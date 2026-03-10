@@ -1,7 +1,10 @@
 import { antfu } from '@antfu/eslint-config'
 
 export default antfu({
-  rules: {
-    'no-console': 'off',
-  },
+    stylistic: {
+        indent: 4,
+    },
+    rules: {
+        'no-console': 'off',
+    },
 })
