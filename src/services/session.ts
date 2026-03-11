@@ -1,35 +1,51 @@
-import type { NewMessage, NewSession, SelectMessage, SelectSession } from '../db/schema'
+import type { NewMessage, NewRag, NewSession, SelectMessage, SelectRag, SelectSession } from '../db/schema'
 import type { ApiResponse } from '../types/response'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index'
-import { messages, sessions } from '../db/schema'
+import { messages, rags, sessions } from '../db/schema'
 import { hasAnswer } from '../types/response'
 
 export class SessionService {
     sessionId: string = ''
+    userId: string = ''
     session: SelectSession | undefined = undefined
 
-    constructor(private userId: string) {}
+    constructor(userId: string, sessionId: string) {
+        this.userId = userId
+        this.initSession(sessionId)
+    }
 
-    async initialize({ sessionId, text }: {
-        sessionId: string
-        text: string
-    }): Promise<SelectMessage[]> {
+    async chat(text: string): Promise<SelectMessage[]> {
         const result: SelectMessage[] = []
-        if (sessionId) {
-            this.sessionId = sessionId
-            this.session = await this.getSession()
-        }
-        else {
-            const session = await this.createSession()
-            this.sessionId = session.id
-            console.log('会话不存在，创建会话', this.sessionId)
-        }
 
         result.push(await this.appendUserMessage(text))
         result.push(await this.appendAssistantMessage())
 
         return result
+    }
+
+    // 向 RAG 表添加记录
+    async appendRag(messageId: string, indexVersion: string, content: string): Promise<SelectRag> {
+        const rag: NewRag = {
+            sessionId: this.sessionId,
+            messageId,
+            indexVersion,
+            content,
+        }
+
+        return await db.transaction(async (tx) => {
+            // 新增消息记录
+            const [updatedRag] = await tx.insert(rags)
+                .values(rag)
+                .returning()
+
+            // 更新会话最新时间
+            await tx.update(sessions)
+                .set({ lastMessageAt: new Date() })
+                .where(eq(sessions.id, this.sessionId))
+
+            return updatedRag
+        })
     }
 
     // 向数据库添加机器人消息
@@ -158,6 +174,18 @@ export class SessionService {
 
     async receiveResponseMessage(assistantMessage: SelectMessage, response: ApiResponse): Promise<SelectMessage[]> {
         return await this.updateAssistantMessage(assistantMessage, response)
+    }
+
+    async initSession(sessionId: string) {
+        if (sessionId) {
+            this.sessionId = sessionId
+            this.session = await this.getSession()
+        }
+        else {
+            const session = await this.createSession()
+            this.sessionId = session.id
+            console.log('会话不存在，创建会话', this.sessionId)
+        }
     }
 
     // 创建新的会话

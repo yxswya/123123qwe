@@ -52,6 +52,18 @@ export const messages = sqliteTable('messages', {
 export type NewMessage = typeof messages.$inferInsert
 export type SelectMessage = typeof messages.$inferSelect
 
+// RAG 构建产物
+export const rags = sqliteTable('rags', {
+    id: text('id').$defaultFn(() => nanoid()).primaryKey(),
+    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+    indexVersion: text('index_version').notNull(), // 索引版本
+    content: text('content').notNull(),
+})
+
+export type NewRag = typeof rags.$inferInsert
+export type SelectRag = typeof rags.$inferSelect
+
 // ==========================================
 // 定义 Relations (方便进行关系查询 query API)
 // ==========================================
@@ -77,7 +89,7 @@ export const participantsRelations = relations(participants, ({ one }) => ({
     }),
 }))
 
-export const messagesRelations = relations(messages, ({ one }) => ({
+export const messagesRelations = relations(messages, ({ one, many }) => ({
     session: one(sessions, {
         fields: [messages.sessionId],
         references: [sessions.id],
@@ -88,6 +100,17 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     }),
     replyTo: one(messages, {
         fields: [messages.replyToId],
+        references: [messages.id],
+    }),
+}))
+
+export const ragsRelations = relations(rags, ({ one }) => ({
+    session: one(sessions, {
+        fields: [rags.sessionId],
+        references: [sessions.id],
+    }),
+    message: one(messages, {
+        fields: [rags.messageId],
         references: [messages.id],
     }),
 }))

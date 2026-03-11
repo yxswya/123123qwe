@@ -108,7 +108,7 @@ export interface RagBuildParams {
 }
 
 // /api/exec/rag/build 返回结果
-export interface RagBuildResponse {
+export interface RagBuildResponsewww {
     answer: {
         stage: 'rag_build'
         cached: boolean
@@ -186,7 +186,7 @@ export interface RagBuildStatusSuccessResponse {
             state: 'succeeded'
             progress: 1.0
             error: null
-            result: RagBuildResponse['answer']
+            result: RagBuildResponsewww['answer']
             submitted_at: number
             started_at: number
             finished_at: number
