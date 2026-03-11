@@ -140,6 +140,7 @@ export class SessionService {
                         avatarUrl: true,
                     },
                 },
+                rags: true,
             },
             orderBy: (messages, { desc }) => [desc(messages.createdAt)],
             limit,

@@ -76,6 +76,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const sessionsRelations = relations(sessions, ({ many }) => ({
     participants: many(participants),
     messages: many(messages),
+    rags: many(rags),
 }))
 
 export const participantsRelations = relations(participants, ({ one }) => ({
@@ -102,6 +103,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
         fields: [messages.replyToId],
         references: [messages.id],
     }),
+    rags: many(rags),
 }))
 
 export const ragsRelations = relations(rags, ({ one }) => ({

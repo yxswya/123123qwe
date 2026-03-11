@@ -52,7 +52,7 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
             }
 
             yield sse({
-                event: 'result',
+                event: 'init',
                 data: `开始同步构建`,
             })
 
