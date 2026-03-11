@@ -1,4 +1,4 @@
-import { mkdir, stat } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import path, { join } from 'node:path'
 import Elysia, { t } from 'elysia'
 import { authPlugin } from '../plugins/auth'
