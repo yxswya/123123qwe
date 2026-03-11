@@ -2,7 +2,7 @@ import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 import { authRoutes } from './routes/auth'
-import { conversationRoutes } from './routes/conversation'
+import { sessionRoutes } from './routes/session'
 import { userRoutes } from './routes/user'
 
 const app = new Elysia()
@@ -13,7 +13,8 @@ const app = new Elysia()
         app
             .use(authRoutes)
             .use(userRoutes)
-            .use(conversationRoutes))
+            .use(sessionRoutes))
+    .get('/', () => 'Hello World')
     .listen(3002)
 
 export type App = typeof app
