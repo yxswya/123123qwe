@@ -9,7 +9,7 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
         }),
     )
     .derive({ as: 'global' }, async ({ jwt, cookie: { auth } }) => {
-        console.log('auth.value', auth.value)
+        console.log('auth.value >>', auth.value)
         // 自动从名为 'auth' 的 cookie 中提取 token
         if (!auth.value) {
             return { user: null }
