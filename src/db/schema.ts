@@ -49,6 +49,7 @@ export const messages = sqliteTable('messages', {
 })
 
 export type NewMessage = typeof messages.$inferInsert
+export type SelectMessage = typeof messages.$inferSelect
 
 // ==========================================
 // 定义 Relations (方便进行关系查询 query API)

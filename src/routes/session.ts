@@ -21,15 +21,21 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                 console.log(sessionId)
                 console.log(body.text)
 
-                const session = new SessionService(user.name) // TODO:
-                session.initialize({
-                    sessionId,
-                    text: body.text,
-                })
                 // 【核心变化 2】：使用 yield sse() 推送数据
                 yield sse({
                     event: 'status',
                     data: '已连接网关，正在唤醒 Python 层...',
+                })
+
+                const session = new SessionService(user.name) // TODO:
+                const data = await session.initialize({
+                    sessionId,
+                    text: body.text,
+                })
+
+                yield sse({
+                    event: 'result',
+                    data,
                 })
 
                 try {
@@ -76,14 +82,16 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     if (!pyResponse!.ok)
                         throw new Error(`Python 返回错误: ${pyResponse!.status}`)
                     const pyData = await pyResponse!.json() as Success<ApiResponse>
-                    session.receiveResponseMessage(pyData.data)
+                    const datas = await session.receiveResponseMessage(pyData.data)
 
-                    // 4. 将最终完整的结果推给前端
-                    yield sse({
-                        event: 'result',
-                        // 假设 Python 返回了 {"data": "..."}
-                        data: pyData.data,
-                    })
+                    for (let i = 0; i < datas.length; i++) {
+                        // 4. 将最终完整的结果推给前端
+                        yield sse({
+                            event: 'result',
+                            // 假设 Python 返回了 {"data": "..."}
+                            data: datas[i],
+                        })
+                    }
                 }
                 catch (error: any) {
                     yield sse({

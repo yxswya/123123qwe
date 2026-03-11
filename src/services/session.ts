@@ -1,8 +1,9 @@
-import type { NewMessage, NewSession } from '../db/schema'
+import type { NewMessage, NewSession, SelectMessage } from '../db/schema'
 import type { ApiResponse } from '../types/response'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index'
 import { messages, sessions } from '../db/schema'
+import { hasAnswer } from '../types/response'
 
 export class SessionService {
     sessionId: string = ''
@@ -12,7 +13,7 @@ export class SessionService {
     async initialize({ sessionId, text }: {
         sessionId: string
         text: string
-    }) {
+    }): Promise<SelectMessage> {
         if (sessionId) {
             this.sessionId = sessionId
         }
@@ -28,11 +29,13 @@ export class SessionService {
             console.log('会话不存在，创建会话', this.sessionId)
         }
 
-        await this.appendUserMessage(text)
+        return await this.appendUserMessage(text)
     }
 
     // 向数据库添加机器人消息
-    async appendAssistantMessage(content: string) {
+    async appendAssistantMessage(response: ApiResponse) {
+        let result: SelectMessage[] = []
+        const content = JSON.stringify(response)
         const message: NewMessage = {
             sessionId: this.sessionId,
             senderId: 'system-bot-id',
@@ -40,30 +43,37 @@ export class SessionService {
             type: 'json',
         }
 
+        // TODO: 解析数据，根据里面的数据相对应的处理
+        const otherAction = this.transformResponse(response)
+
         await db.transaction(async (tx) => {
             // 新增消息记录
             const [updatedMessage] = await tx.insert(messages)
                 .values(message)
                 .returning()
 
+            // 将服务返回的数据和解析出来的数据一同传递给sse
+            const r = await otherAction()
+            result = [updatedMessage, ...r]
+
             // 更新会话最新时间
             await tx.update(sessions)
                 .set({ lastMessageAt: new Date() })
                 .where(eq(sessions.id, message.sessionId))
-
-            return updatedMessage
         })
+
+        return result
     }
 
     // 向数据库添加用户消息
-    async appendUserMessage(content: string) {
+    async appendUserMessage(content: string): Promise<SelectMessage> {
         const message: NewMessage = {
             sessionId: this.sessionId,
             senderId: this.userId,
             content,
         }
 
-        await db.transaction(async (tx) => {
+        return await db.transaction(async (tx) => {
             // 新增消息记录
             const [updatedMessage] = await tx.insert(messages)
                 .values(message)
@@ -79,7 +89,7 @@ export class SessionService {
     }
 
     // 从数据库获取指定会话列表消息
-    async getMessages(sessionId: string, limit = 20, offset = 0) {
+    async getMessages(sessionId: string, limit = 20, offset = 0): Promise<SelectMessage[]> {
         const historyMessages = await db.query.messages.findMany({
             where: (messages, { eq }) => eq(messages.sessionId, sessionId),
             with: {
@@ -99,8 +109,31 @@ export class SessionService {
         return historyMessages.reverse()
     }
 
-    async receiveResponseMessage(response: ApiResponse) {
+    // 解析由外部 YUTONG 服务传递过来的数据
+    transformResponse(response: ApiResponse) {
+        const fns: Array<() => Promise<SelectMessage>> = []
+        if (!hasAnswer(response)) {
+            if (response.intent.actions.includes('RAG_BUILD_INDEX')) {
+                fns.push(
+                    async () => {
+                        const message: NewMessage = {
+                            sessionId: this.sessionId,
+                            senderId: 'system-bot-id',
+                            content: 'Rag 构建',
+                            type: 'text',
+                        }
+                        const [newMessage] = await db.insert(messages).values(message).returning()
+                        return newMessage
+                    },
+                )
+            }
+        }
+
+        return () => Promise.all(fns.map(el => el()))
+    }
+
+    async receiveResponseMessage(response: ApiResponse): Promise<SelectMessage[]> {
         console.log('response', response)
-        await this.appendAssistantMessage(JSON.stringify(response))
+        return await this.appendAssistantMessage(response)
     }
 }
