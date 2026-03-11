@@ -14,15 +14,18 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
         },
     }, app => app
         // 以下所有路由受到 guard 保护
-        .post('/chat',
+        .post('/chat/:sessionId',
             // 【核心变化 1】：直接将处理函数声明为异步生成器 (async function*)
-            async function* ({ body }) {
-                console.log(body.sessionId)
+            async function* ({ body, user, params: { sessionId } }) {
+                console.log(user)
+                console.log(sessionId)
                 console.log(body.text)
-                console.log(body.content)
 
-                const session = new SessionService()
-                session.initialize(body.sessionId)
+                const session = new SessionService(user.name) // TODO:
+                session.initialize({
+                    sessionId,
+                    text: body.text,
+                })
                 // 【核心变化 2】：使用 yield sse() 推送数据
                 yield sse({
                     event: 'status',
@@ -37,7 +40,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                         body: JSON.stringify({
                             session_id: session.sessionId,
                             text: body.text,
-                            content: body.content,
+                            content: body.text,
                             run_quality_check: false,
                         }),
                     })
@@ -91,10 +94,31 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
 
                 // 【核心变化 3】：不再需要手动 stream.close()，函数执行结束（return），Elysia 自动关闭流
             }, {
+                params: t.Object({
+                    sessionId: t.String(),
+                }),
                 body: t.Object({
                     text: t.String(),
-                    content: t.String(),
-                    sessionId: t.String(),
                     messageId: t.String(),
                 }),
-            }))
+            })
+        .get('/chat/:sessionId', async ({ params: { sessionId }, query, user }) => {
+            const limit = query.limit || 20
+            const offset = query.offset || 0
+
+            const session = new SessionService(user.name)
+            return session.getMessages(sessionId, limit, offset)
+        }, {
+            params: t.Object({
+                sessionId: t.String(),
+            }),
+            query: t.Object({
+                limit: t.Optional(t.Numeric()),
+                offset: t.Optional(t.Numeric()),
+            }),
+            detail: {
+                tags: ['消息管理'],
+                summary: '获取历史消息',
+                description: '获取指定会话的历史消息列表，支持分页查询。',
+            },
+        }))
