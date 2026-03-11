@@ -6,10 +6,6 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
         jwt({
             name: 'jwt',
             secret: 'Fischl von Luftschloss Narfidort',
-            schema: t.Object({
-                id: t.Numeric(),
-                username: t.String(),
-            }),
         }),
     )
     .derive({ as: 'global' }, async ({ jwt, cookie: { auth } }) => {
@@ -18,10 +14,7 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
             return { user: null }
         }
 
-        const payload = await jwt.verify(auth.value as string) as {
-            id: number
-            username: string
-        }
+        const payload = await jwt.verify(auth.value as string)
 
         if (!payload) {
             return { user: null }

@@ -5,6 +5,7 @@ export const userRoutes = new Elysia({ prefix: '/user' })
     .use(authPlugin)
     .guard({
         beforeHandle: ({ user, set }) => {
+            console.log('user', user)
             if (!user) {
                 set.status = 401
                 return { error: 'Unauthorized' }

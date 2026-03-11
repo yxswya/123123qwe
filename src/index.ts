@@ -2,6 +2,7 @@ import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 import { authRoutes } from './routes/auth'
+import { conversationRoutes } from './routes/conversation'
 import { userRoutes } from './routes/user'
 
 const app = new Elysia()
@@ -11,9 +12,12 @@ const app = new Elysia()
     .group('/api/v1', app =>
         app
             .use(authRoutes)
-            .use(userRoutes))
-    .listen(3000)
+            .use(userRoutes)
+            .use(conversationRoutes))
+    .listen(3002)
+
+export type App = typeof app
 
 console.log(
-    `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`,
+    `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}/openapi`,
 )
