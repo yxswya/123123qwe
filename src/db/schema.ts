@@ -20,6 +20,8 @@ export const sessions = sqliteTable('sessions', {
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 })
 
+export type NewSession = typeof sessions.$inferInsert
+
 // 参与者 (多对多关联 Users 和 Sessions)
 export const participants = sqliteTable(
     'participants',
@@ -45,6 +47,8 @@ export const messages = sqliteTable('messages', {
     status: text('status', { enum: ['sending', 'success', 'error'] }).notNull().default('success'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 })
+
+export type NewMessage = typeof messages.$inferInsert
 
 // ==========================================
 // 定义 Relations (方便进行关系查询 query API)

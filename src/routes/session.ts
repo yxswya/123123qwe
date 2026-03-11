@@ -1,5 +1,7 @@
+import type { ApiResponse, Success } from '../types/response'
 import Elysia, { sse, t } from 'elysia'
 import { authPlugin } from '../plugins/auth'
+import { SessionService } from '../services/session'
 
 export const sessionRoutes = new Elysia({ prefix: '/session' })
     .use(authPlugin)
@@ -18,6 +20,9 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                 console.log(body.sessionId)
                 console.log(body.text)
                 console.log(body.content)
+
+                const session = new SessionService()
+                session.initialize(body.sessionId)
                 // 【核心变化 2】：使用 yield sse() 推送数据
                 yield sse({
                     event: 'status',
@@ -30,7 +35,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            session_id: body.sessionId || '',
+                            session_id: session.sessionId,
                             text: body.text,
                             content: body.content,
                             run_quality_check: false,
@@ -58,7 +63,6 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                             })
                         }
                         else {
-                            console.log('raceResult', raceResult)
                             // Python 终于返回了，跳出循环
                             isPythonDone = true
                             pyResponse = (raceResult as { type: string, res: Response }).res
@@ -68,7 +72,8 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     // 3. 处理 Python 的返回结果
                     if (!pyResponse!.ok)
                         throw new Error(`Python 返回错误: ${pyResponse!.status}`)
-                    const pyData = await pyResponse!.json()
+                    const pyData = await pyResponse!.json() as Success<ApiResponse>
+                    session.receiveResponseMessage(pyData.data)
 
                     // 4. 将最终完整的结果推给前端
                     yield sse({
