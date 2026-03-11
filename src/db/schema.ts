@@ -21,6 +21,7 @@ export const sessions = sqliteTable('sessions', {
 })
 
 export type NewSession = typeof sessions.$inferInsert
+export type SelectSession = typeof sessions.$inferSelect
 
 // 参与者 (多对多关联 Users 和 Sessions)
 export const participants = sqliteTable(

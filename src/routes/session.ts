@@ -17,6 +17,9 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
         .post('/chat/:sessionId',
             // 【核心变化 1】：直接将处理函数声明为异步生成器 (async function*)
             async function* ({ body, user, params: { sessionId } }) {
+                if (sessionId === 'new') {
+                    sessionId = ''
+                }
                 console.log(user)
                 console.log(sessionId)
                 console.log(body.text)
@@ -28,14 +31,21 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                 })
 
                 const session = new SessionService(user.name) // TODO:
-                const data = await session.initialize({
+                const [userMessage, assistantMessage] = await session.initialize({
                     sessionId,
                     text: body.text,
                 })
 
+                // 用户信息
                 yield sse({
                     event: 'result',
-                    data,
+                    data: userMessage,
+                })
+
+                // 机器人加载信息
+                yield sse({
+                    event: 'result',
+                    data: assistantMessage,
                 })
 
                 try {
@@ -82,7 +92,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     if (!pyResponse!.ok)
                         throw new Error(`Python 返回错误: ${pyResponse!.status}`)
                     const pyData = await pyResponse!.json() as Success<ApiResponse>
-                    const datas = await session.receiveResponseMessage(pyData.data)
+                    const datas = await session.receiveResponseMessage(assistantMessage, pyData.data)
 
                     for (let i = 0; i < datas.length; i++) {
                         // 4. 将最终完整的结果推给前端
@@ -110,12 +120,11 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     messageId: t.String(),
                 }),
             })
-        .get('/chat/:sessionId', async ({ params: { sessionId }, query, user }) => {
+        .get('/chat/:sessionId', async ({ params: { sessionId }, query }) => {
             const limit = query.limit || 20
             const offset = query.offset || 0
 
-            const session = new SessionService(user.name)
-            return session.getMessages(sessionId, limit, offset)
+            return SessionService.getMessages(sessionId, limit, offset)
         }, {
             params: t.Object({
                 sessionId: t.String(),
