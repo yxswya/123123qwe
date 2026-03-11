@@ -51,3 +51,6 @@ drizzle/
 
 # db
 sqlite.db
+
+# cache
+uploads/
