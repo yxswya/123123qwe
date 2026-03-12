@@ -10,9 +10,12 @@ export class SessionService {
     userId: string = ''
     session: SelectSession | undefined = undefined
 
-    constructor(userId: string, sessionId: string) {
+    constructor(userId: string) {
         this.userId = userId
-        this.initSession(sessionId)
+    }
+
+    async initialize(sessionId: string) {
+        await this.initSession(sessionId)
     }
 
     async chat(text: string): Promise<SelectMessage[]> {

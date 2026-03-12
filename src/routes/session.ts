@@ -14,10 +14,10 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
         },
     }, app => app
         // 以下所有路由受到 guard 保护
-        .post('/chat/:sessionId',
+        .post('/chat/:sessionId?',
             // 【核心变化 1】：直接将处理函数声明为异步生成器 (async function*)
             async function* ({ body, user, params: { sessionId } }) {
-                if (sessionId === 'new') {
+                if (!sessionId) {
                     sessionId = ''
                 }
                 console.log(user)
@@ -30,7 +30,9 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     data: '已连接网关，正在唤醒 Python 层...',
                 })
 
-                const session = new SessionService(user.name, sessionId) // TODO:
+                const session = new SessionService(user.name) // TODO:
+                await session.initialize(sessionId)
+                console.log(session.sessionId)
                 const [userMessage, assistantMessage] = await session.chat(body.text)
 
                 // 用户信息
@@ -110,7 +112,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                 // 【核心变化 3】：不再需要手动 stream.close()，函数执行结束（return），Elysia 自动关闭流
             }, {
                 params: t.Object({
-                    sessionId: t.String(),
+                    sessionId: t.Optional(t.String()),
                 }),
                 body: t.Object({
                     text: t.String(),

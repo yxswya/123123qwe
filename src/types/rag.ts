@@ -50,3 +50,23 @@ export interface RagBuildResponse {
     sources: string[]
     error: null
 }
+
+export interface RagAnswerResponse {
+    answer: {
+        text: string
+        citations: [
+            {
+                rank: number
+                score: number
+                text: string
+                source: string
+                span: number[]
+            },
+        ]
+        index_version: string
+        mode: 'hybrid'
+    }
+    confidence: 0
+    sources: []
+    error: null
+}
