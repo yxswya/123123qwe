@@ -59,10 +59,24 @@ export const rags = sqliteTable('rags', {
     messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
     indexVersion: text('index_version').notNull(), // 索引版本
     content: text('content').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 })
 
 export type NewRag = typeof rags.$inferInsert
 export type SelectRag = typeof rags.$inferSelect
+
+// 文件上传记录
+export const files = sqliteTable('files', {
+    id: text('id').$defaultFn(() => nanoid()).primaryKey(),
+    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    fileName: text('file_name').notNull(),
+    fileUrl: text('file_url').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type NewFile = typeof files.$inferInsert
+export type SelectFile = typeof files.$inferSelect
 
 // ==========================================
 // 定义 Relations (方便进行关系查询 query API)
@@ -77,6 +91,7 @@ export const sessionsRelations = relations(sessions, ({ many }) => ({
     participants: many(participants),
     messages: many(messages),
     rags: many(rags),
+    files: many(files),
 }))
 
 export const participantsRelations = relations(participants, ({ one }) => ({
@@ -104,6 +119,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
         references: [messages.id],
     }),
     rags: many(rags),
+    files: many(files),
 }))
 
 export const ragsRelations = relations(rags, ({ one }) => ({
@@ -113,6 +129,17 @@ export const ragsRelations = relations(rags, ({ one }) => ({
     }),
     message: one(messages, {
         fields: [rags.messageId],
+        references: [messages.id],
+    }),
+}))
+
+export const filesRelations = relations(files, ({ one }) => ({
+    session: one(sessions, {
+        fields: [files.sessionId],
+        references: [sessions.id],
+    }),
+    message: one(messages, {
+        fields: [files.messageId],
         references: [messages.id],
     }),
 }))

@@ -14,9 +14,7 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
         app
             .post('/start', async ({ body }) => {
                 const files = body.files as File[] | File
-
                 const fileArray = Array.isArray(files) ? files : [files]
-                console.log('/api/exec/train/start')
 
                 const formData = new FormData()
                 fileArray.forEach((el) => {
@@ -30,27 +28,27 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                         },
                     ],
                     rag_cfg: {
-                        embedder: 'sentence-transformers/all-MiniLM-L6-v2',
+                        embedder: 'sentence-transformers/all-MiniLM-L6-v2', // 已是最小嵌入模型之一（384维），可保持或换为更小的 paraphrase-MiniLM-L3-v2
                         dim: 384,
                         chunk: {
-                            size: 400,
-                            overlap: 50,
-                            max_chunks: 100,
+                            size: 128, // 原400 → 128（减小块大小，降低计算）
+                            overlap: 16, // 原50 → 16（减小重叠，减少冗余）
+                            max_chunks: 10, // 原100 → 10（限制最大块数，避免处理过多）
                         },
-                        backend: 'milvus',
-                        batch_size: 16,
+                        backend: 'milvus', // 保持不变，也可改用内存型（如 'faiss' 或 'memory' 但需后端支持）
+                        batch_size: 1, // 原16 → 1（最小批次，减少显存/内存占用）
                     },
                     train_cfg: {
-                        base_model: 'Qwen/Qwen2.5-0.5B',
+                        base_model: 'Qwen/Qwen2.5-0.5B', // 已是最小模型之一（0.5B），如需更低可换为 bert-tiny 等
                         method: 'lora',
-                        epochs: 1,
-                        max_steps: 10,
-                        lr: 2e-4,
-                        batch_size: 4,
-                        lora_r: 4,
-                        lora_alpha: 8,
-                        max_seq_len: 512,
-                        dry_run: false,
+                        epochs: 1, // 已经最小
+                        max_steps: 1, // 原10 → 1（只训练一步，快速测试）
+                        lr: 2e-4, // 学习率不变（过小可能导致不收敛）
+                        batch_size: 1, // 原4 → 1（最小训练批次）
+                        lora_r: 1, // 原4 → 1（最小秩，参数最少）
+                        lora_alpha: 1, // 原8 → 1（与 r 匹配）
+                        max_seq_len: 128, // 原512 → 128（减小序列长度，节省显存）
+                        dry_run: false, // 保持 false（如需不实际训练可设为 true）
                     },
                     extra_dataset_ids: [],
                 }))
@@ -83,4 +81,17 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                         minItems: 1,
                     }),
                 }),
+            })
+            .post('/evaluate', async () => {
+                return fetch('http://localhost:8002/api/exec/train/evaluate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ train_cfg: {
+                        dataset_uri: 'file://indices\\idx_2e8dc59f',
+                        base_model: 'Qwen/Qwen2-0.5B',
+                        method: 'sft',
+                    } }),
+                }).then(res => res.json())
             }))

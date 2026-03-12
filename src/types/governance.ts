@@ -1,4 +1,4 @@
-export interface GovernanceRag {
+export interface GovernanceRagResponse {
     answer: {
         governance: [
             {
@@ -79,4 +79,48 @@ export interface GovernanceRag {
     sources: string[]
     error: null
 
+}
+
+export interface GovernanceResponse {
+    success: [
+        {
+            file: string
+            file_name: string
+            result: {
+                status: string
+                format: string
+                total_documents: number
+                valid_documents: number
+                removed_documents: number
+                documents: [
+                    {
+                        id: string
+                        text: string
+                        metadata: {
+                            source: string
+                            paragraph: number
+                            format: string
+                        }
+                    },
+                ]
+                metadata: object
+                task_type: string
+            }
+        },
+    ]
+    failed: [
+        {
+            file: string
+            file_name: string
+            error: string
+        },
+    ]
+    summary: {
+        total: number
+        success_count: number
+        failed_count: number
+        total_time: number
+        avg_time_per_file: number
+    }
+    filename_mapping: Record<string, string>
 }

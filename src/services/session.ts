@@ -131,6 +131,23 @@ export class SessionService {
         })
     }
 
+    // 从数据库中获取指定会话信息
+    static async getSessionById(sessionId: string) {
+        const session = await db.query.sessions.findFirst({
+            where: (sessions, { eq }) => eq(sessions.id, sessionId),
+            with: {
+                messages: {
+                    with: {
+                        rags: true,
+                    },
+                },
+                files: true,
+            },
+        })
+
+        return session
+    }
+
     // 从数据库获取指定会话列表消息
     static async getMessages(sessionId: string, limit = 20, offset = 0): Promise<SelectMessage[]> {
         const historyMessages = await db.query.messages.findMany({
@@ -212,7 +229,7 @@ export class SessionService {
 
     // 获取所有的会话列表（只要id）
     static async getAllSession() {
-        const list = await db.select({ id: sessions.id }).from(sessions)
+        const list = await db.select({ id: sessions.id, title: sessions.title }).from(sessions)
         return list
     }
 }

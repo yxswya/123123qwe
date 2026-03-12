@@ -119,18 +119,11 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     messageId: t.String(),
                 }),
             })
-        .get('/chat/:sessionId', async ({ params: { sessionId }, query }) => {
-            const limit = query.limit || 20
-            const offset = query.offset || 0
-
-            return SessionService.getMessages(sessionId, limit, offset)
+        .get('/chat/:sessionId', async ({ params: { sessionId } }) => {
+            return SessionService.getSessionById(sessionId)
         }, {
             params: t.Object({
                 sessionId: t.String(),
-            }),
-            query: t.Object({
-                limit: t.Optional(t.Numeric()),
-                offset: t.Optional(t.Numeric()),
             }),
             detail: {
                 tags: ['消息管理'],
