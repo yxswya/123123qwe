@@ -22,7 +22,7 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
         .post(
             '/build/:sessionId',
             async function* ({ body, params: { sessionId }, user }) {
-            // 将文件路径转换为完整路径并计算总大小
+                // 将文件路径转换为完整路径并计算总大小
                 const filePaths = body.file_paths.map(p => path.join(path.resolve(), p))
                 let totalSize = 0
 
@@ -131,6 +131,11 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
             },
         )
         .post('/chat/:index_version', async ({ params: { index_version }, body }) => {
+            console.log({
+                query: body.text,
+                index_version,
+                top_k: 5,
+            })
             const result = await fetch('http://localhost:8002/api/exec/rag/answer', {
                 method: 'POST',
                 headers: {
@@ -140,6 +145,7 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
                     query: body.text,
                     index_version,
                     top_k: 5,
+                    mode: 'hybrid',
                 }),
             }).then(res => res.json())
 

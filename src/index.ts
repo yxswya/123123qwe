@@ -3,8 +3,11 @@ import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 
 import { authRoutes } from './routes/auth'
+import { governanceRoutes } from './routes/governance'
+import { modelRoutes } from './routes/model'
 import { ragRoutes } from './routes/rag'
 import { sessionRoutes } from './routes/session'
+import { trainRoutes } from './routes/train'
 import { uploadRoutes } from './routes/upload'
 import { userRoutes } from './routes/user'
 
@@ -18,6 +21,9 @@ const app = new Elysia()
             .use(userRoutes)
             .use(sessionRoutes)
             .use(uploadRoutes)
+            .use(modelRoutes)
+            .use(trainRoutes)
+            .use(governanceRoutes)
             .use(ragRoutes))
     .get('/', () => 'Hello World')
     .listen(3002)

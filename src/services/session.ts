@@ -209,4 +209,10 @@ export class SessionService {
         const [session] = await db.select().from(sessions).where(eq(sessions.id, this.sessionId))
         return session
     }
+
+    // 获取所有的会话列表（只要id）
+    static async getAllSession() {
+        const list = await db.select({ id: sessions.id }).from(sessions)
+        return list
+    }
 }

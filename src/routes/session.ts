@@ -137,4 +137,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                 summary: '获取历史消息',
                 description: '获取指定会话的历史消息列表，支持分页查询。',
             },
+        })
+        .get('/chat', () => {
+            return SessionService.getAllSession()
         }))
