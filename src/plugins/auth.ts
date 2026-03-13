@@ -12,13 +12,13 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
         console.log('auth.value >>', auth.value)
         // 自动从名为 'auth' 的 cookie 中提取 token
         if (!auth.value) {
-            return { user: null }
+            return { user: { username: 'default' } }
         }
 
         const payload = await jwt.verify(auth.value as string)
 
         if (!payload) {
-            return { user: null }
+            return { user: { username: 'default' } }
         }
 
         return {
