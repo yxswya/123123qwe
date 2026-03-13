@@ -52,7 +52,7 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                     },
                     extra_dataset_ids: [],
                 }))
-                const result = await fetch('http://8.130.127.184:8002/api/data/governance/rag/train/from-files', {
+                const result = await fetch('http://172.0.0.1:8002/api/data/governance/rag/train/from-files', {
                     method: 'POST',
                     body: formData,
                 }).then(res => res.json())
@@ -61,7 +61,7 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                 return result
 
                 // console.log('/api/exec/train/start')
-                // const result = await fetch('http://8.130.127.184:8002/api/exec/train/start', {
+                // const result = await fetch('http://172.0.0.1:8002/api/exec/train/start', {
                 //     method: 'POST',
                 //     headers: { 'Content-Type': 'application/json' },
                 //     body: JSON.stringify({
@@ -83,7 +83,7 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                 }),
             })
             .post('/evaluate', async () => {
-                return fetch('http://8.130.127.184:8002/api/exec/train/evaluate', {
+                return fetch('http://172.0.0.1:8002/api/exec/train/evaluate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

@@ -10,7 +10,7 @@ function App() {
         setResult('')
 
         // 使用库发起 POST 请求的 SSE
-        await fetchEventSource('http://8.130.127.184:3002/api/v1/session/chat', {
+        await fetchEventSource('http://172.0.0.1:3002/api/v1/session/chat', {
             // 关键配置：设置为 true 以携带 Cookie
             credentials: 'include',
             // 如果是跨域请求，建议明确指定 mode 为 'cors'
