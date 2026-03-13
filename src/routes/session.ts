@@ -46,10 +46,10 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     event: 'result',
                     data: assistantMessage,
                 })
-                console.log('http://8.130.127.184:8002/api/parse/pipeline')
+                console.log('http://host.docker.internal:8002/api/parse/pipeline')
                 try {
                     // 1. 发起对 Python 阻塞接口的请求
-                    const fetchPromise = fetch('http://8.130.127.184:8002/api/parse/pipeline', {
+                    const fetchPromise = fetch('http://host.docker.internal:8002/api/parse/pipeline', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
