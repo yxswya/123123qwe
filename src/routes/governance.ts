@@ -36,7 +36,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
                 formData.append('task_type', 'rag')
 
-                const data = await fetch('http://host.docker.internal:8002/api/governance/process/batch/enhanced', {
+                const data = await fetch('http://192.168.20.131:8002/api/governance/process/batch/enhanced', {
                     method: 'POST',
                     body: formData,
                 })
@@ -96,7 +96,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                     dataset_file_metas: datasetFileMetas,
                 }))
 
-                const data = await fetch('http://host.docker.internal:8002/api/data/governance/rag/build/from-files', {
+                const data = await fetch('http://192.168.20.131:8002/api/data/governance/rag/build/from-files', {
                     method: 'POST',
                     body: formData,
                 })

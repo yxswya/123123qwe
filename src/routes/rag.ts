@@ -61,7 +61,7 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
                 await session.initialize(sessionId)
                 try {
                 // 1. 发起对 Python 阻塞接口的请求
-                    const fetchPromise = fetch('http://host.docker.internal:8002/api/exec/rag/build', {
+                    const fetchPromise = fetch('http://192.168.20.131:8002/api/exec/rag/build', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(ragParams),
@@ -136,7 +136,7 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
                 index_version,
                 top_k: 5,
             })
-            const result = await fetch('http://host.docker.internal:8002/api/exec/rag/answer', {
+            const result = await fetch('http://192.168.20.131:8002/api/exec/rag/answer', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
