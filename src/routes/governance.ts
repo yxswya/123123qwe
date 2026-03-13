@@ -20,6 +20,9 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
     }, app =>
         app
             .post('/:sessionId', async ({ body, user, params: { sessionId } }) => {
+                if (!sessionId)
+                    return []
+
                 const session = new SessionService(user.name)
                 await session.initialize(sessionId)
 
