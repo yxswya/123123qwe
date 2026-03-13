@@ -46,7 +46,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     event: 'result',
                     data: assistantMessage,
                 })
-                console.log('http://ai.make.meiyi.pro/api/parse/pipeline')
+                console.log('http://ai.make.meiyi.pro/api/parse/pip2eline')
                 try {
                     // 1. 发起对 Python 阻塞接口的请求
                     const fetchPromise = fetch('http://ai.make.meiyi.pro/api/v1/parse/pipeline', {
