@@ -93,6 +93,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     if (!pyResponse!.ok)
                         throw new Error(`Python 返回错误: ${pyResponse!.status}`)
                     const pyData = await pyResponse!.json() as Success<ApiResponse>
+                    console.log(pyData)
                     const datas = await session.receiveResponseMessage(assistantMessage, pyData.data)
 
                     for (let i = 0; i < datas.length; i++) {
