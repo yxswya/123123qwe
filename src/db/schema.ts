@@ -78,6 +78,19 @@ export const files = sqliteTable('files', {
 export type NewFile = typeof files.$inferInsert
 export type SelectFile = typeof files.$inferSelect
 
+export const agents = sqliteTable('agents', {
+    id: text('id').$defaultFn(() => nanoid()).primaryKey(),
+    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    fileId: text('file_id').references(() => files.id, { onDelete: 'set null' }),
+    agentName: text('agent_name').notNull(),
+    agentType: text('agent_type'),
+    dataType: text('data_type'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type NewAgent = typeof agents.$inferInsert
+export type SelectAgent = typeof agents.$inferSelect
+
 // ==========================================
 // 定义 Relations (方便进行关系查询 query API)
 // ==========================================
@@ -92,6 +105,7 @@ export const sessionsRelations = relations(sessions, ({ many }) => ({
     messages: many(messages),
     rags: many(rags),
     files: many(files),
+    agents: many(agents),
 }))
 
 export const participantsRelations = relations(participants, ({ one }) => ({
@@ -133,7 +147,7 @@ export const ragsRelations = relations(rags, ({ one }) => ({
     }),
 }))
 
-export const filesRelations = relations(files, ({ one }) => ({
+export const filesRelations = relations(files, ({ one, many }) => ({
     session: one(sessions, {
         fields: [files.sessionId],
         references: [sessions.id],
@@ -141,5 +155,17 @@ export const filesRelations = relations(files, ({ one }) => ({
     message: one(messages, {
         fields: [files.messageId],
         references: [messages.id],
+    }),
+    agents: many(agents),
+}))
+
+export const agentsRelations = relations(agents, ({ one }) => ({
+    session: one(sessions, {
+        fields: [agents.sessionId],
+        references: [sessions.id],
+    }),
+    file: one(files, {
+        fields: [agents.fileId],
+        references: [files.id],
     }),
 }))

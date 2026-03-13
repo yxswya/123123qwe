@@ -30,7 +30,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     data: '已连接网关，正在唤醒 Python 层...',
                 })
 
-                const session = new SessionService(user.name) // TODO:
+                const session = new SessionService(user.username)
                 await session.initialize(sessionId)
                 console.log(session.sessionId)
                 const [userMessage, assistantMessage] = await session.chat(body.text)

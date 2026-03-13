@@ -1,8 +1,8 @@
-import type { NewMessage, NewRag, NewSession, SelectMessage, SelectRag, SelectSession } from '../db/schema'
+import type { NewAgent, NewMessage, NewRag, NewSession, SelectMessage, SelectRag, SelectSession } from '../db/schema'
 import type { ApiResponse } from '../types/response'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index'
-import { messages, rags, sessions } from '../db/schema'
+import { agents, messages, rags, sessions } from '../db/schema'
 import { hasAnswer } from '../types/response'
 
 export class SessionService {
@@ -145,7 +145,7 @@ export class SessionService {
             },
         })
 
-        return session
+        return session || '数据不存在'
     }
 
     // 从数据库获取指定会话列表消息
@@ -194,6 +194,21 @@ export class SessionService {
     }
 
     async receiveResponseMessage(assistantMessage: SelectMessage, response: ApiResponse): Promise<SelectMessage[]> {
+        if (!hasAnswer(response)) {
+            if (response.intent.actions.includes('AGENT_CREATE') && response.workflow_hint.stage === 'ready_for_agent_create') {
+                const slots = response.intent.slots
+                const agent: NewAgent = {
+                    agentName: slots.agent_name || `智能体一号${Date.now()}`,
+                    sessionId: assistantMessage.sessionId,
+                }
+                // 开始创建智能体
+                await db.insert(agents).values(agent)
+            }
+            else if (response.intent.actions.includes('AGENT_UPDATE') && response.workflow_hint.stage === 'continue') {
+                console.log('更新智能体')
+            }
+        }
+
         return await this.updateAssistantMessage(assistantMessage, response)
     }
 

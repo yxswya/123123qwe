@@ -77,6 +77,14 @@ export interface ApiResponseIntent {
         artifacts: Array<ArtifactType>
         priority: 'low' | 'normal' | 'high' | 'urgent'
         confidence: number // 可信度：当前意图识别结果的信心分数
+        slots: {
+            agent_name: null | string
+            agent_type: null | string
+            files: null | string
+            data_type: null | string
+            use_scenario: null | string
+            priority: null | string
+        }
     }
 }
 

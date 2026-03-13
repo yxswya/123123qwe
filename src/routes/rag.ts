@@ -57,7 +57,7 @@ export const ragRoutes = new Elysia({ prefix: '/rag' })
                     data: `开始同步构建`,
                 })
 
-                const session = new SessionService(user.name) // TODO:
+                const session = new SessionService(user.username)
                 await session.initialize(sessionId)
                 try {
                 // 1. 发起对 Python 阻塞接口的请求

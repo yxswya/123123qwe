@@ -23,7 +23,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 if (!sessionId)
                     return []
 
-                const session = new SessionService(user.name)
+                const session = new SessionService(user.username)
                 await session.initialize(sessionId)
 
                 const files = body.files as File[] | File
@@ -73,7 +73,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 }),
             })
             .post('/rag/:sessionId', async ({ body, user, params: { sessionId } }) => {
-                const session = new SessionService(user.name) // TODO:
+                const session = new SessionService(user.username) // TODO:
                 await session.initialize(sessionId)
 
                 const files = body.files as File[] | File
@@ -108,13 +108,19 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
                 // 保存文件并记录到数据库
                 const fileService = new FileService(sessionId)
-                const fileRecord = await fileService.saveFile(
+                await fileService.saveFile(
                     governanceJsonl,
                     `governance-${Date.now()}.jsonl`,
                     body.message_id,
                 )
 
-                return fileRecord
+                const result = await session.appendRag(
+                    body.message_id,
+                    data.answer.rag.artifacts.index_version,
+                    JSON.stringify(data),
+                )
+
+                return result
             }, {
                 body: t.Object({
                     files: t.Files({

@@ -1,5 +1,5 @@
 {
-    "name": "failure",
+    "name": "server",
     "type": "module",
     "version": "1.0.50",
     "module": "src/index.js",
