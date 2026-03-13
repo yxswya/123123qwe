@@ -49,7 +49,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
 
                 try {
                     // 1. 发起对 Python 阻塞接口的请求
-                    const fetchPromise = fetch('http://localhost:8002/api/parse/pipeline', {
+                    const fetchPromise = fetch('http://host.docker.internal:8002/api/parse/pipeline', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

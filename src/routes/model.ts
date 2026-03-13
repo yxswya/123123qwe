@@ -12,7 +12,7 @@ export const modelRoutes = new Elysia({ prefix: '/model' })
         },
     }, app => app.get('/recommend', async () => {
         // console.log('api/model/recommend')
-        // const result = await fetch('http://localhost:8002/api/recommend/models', {
+        // const result = await fetch('http://host.docker.internal:8002/api/recommend/models', {
         //     method: 'POST',
         //     headers: { 'Content-Type': 'application/json' },
         //     body: JSON.stringify({
