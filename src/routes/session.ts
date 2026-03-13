@@ -46,10 +46,10 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                     event: 'result',
                     data: assistantMessage,
                 })
-                console.log('http://host.docker.internal:8002/api/parse/pipeline')
+                console.log('http://ai.make.meiyi.pro/api/parse/pipeline')
                 try {
                     // 1. 发起对 Python 阻塞接口的请求
-                    const fetchPromise = fetch('http://10.0.0.2:8000/api/parse/pipeline', {
+                    const fetchPromise = fetch('http://ai.make.meiyi.pro/api/parse/pipeline', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
