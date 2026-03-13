@@ -49,7 +49,7 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                 console.log('http://ai.make.meiyi.pro/api/parse/pipeline')
                 try {
                     // 1. 发起对 Python 阻塞接口的请求
-                    const fetchPromise = fetch('http://ai.make.meiyi.pro/api/parse/pipeline', {
+                    const fetchPromise = fetch('http://ai.make.meiyi.pro/api/v1/parse/pipeline', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
