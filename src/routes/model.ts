@@ -11,17 +11,6 @@ export const modelRoutes = new Elysia({ prefix: '/model' })
             }
         },
     }, app => app.get('/recommend', async () => {
-        // console.log('api/model/recommend')
-        // const result = await fetch('http://172.0.0.1:8002/api/recommend/models', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify({
-        //         text: '用户希望构建一个用于企业内部业务流程的智能体，主要功能是供内部员工进行日常检索和查看，并明确将“上线最快”作为首要目标。用户当前提及“训练模型”，表明项目已进入模型构建阶段，但具体的业务领域、数据类型和性能指标仍未明确。',
-        //     }),
-        // }).then(res => res.json())
-
-        // console.log('result', result)
-        // return result
         return {
             answer: {
                 user_request: '用户希望构建一个用于企业内部业务流程的智能体，主要功能是供内部员工进行日常检索和查看，并明确将“上线最快”作为首要目标。用户当前提及“训练模型”，表明项目已进入模型构建阶段，但具体的业务领域、数据类型和性能指标仍未明确。',

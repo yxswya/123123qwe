@@ -1,7 +1,9 @@
-import type { ApiResponse, Success } from '../types/response'
+import type { SSEPayload } from 'elysia'
 import Elysia, { sse, t } from 'elysia'
 import { authPlugin } from '../plugins/auth'
 import { SessionService } from '../services/session'
+
+import eventBus from '../utils/event-bus'
 
 export const sessionRoutes = new Elysia({ prefix: '/session' })
     .use(authPlugin)
@@ -16,40 +18,21 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
         // 以下所有路由受到 guard 保护
         .post('/chat/:sessionId?',
             // 【核心变化 1】：直接将处理函数声明为异步生成器 (async function*)
-            async function* ({ body, user, params: { sessionId } }) {
+            async ({ body, user, params: { sessionId } }) => {
                 if (!sessionId) {
                     sessionId = ''
                 }
-                console.log(user)
-                console.log(sessionId)
-                console.log(body.text)
-
-                // 【核心变化 2】：使用 yield sse() 推送数据
-                yield sse({
-                    event: 'status',
-                    data: '已连接网关，正在唤醒 Python 层...',
-                })
 
                 const session = new SessionService(user.username)
                 await session.initialize(sessionId)
-                console.log(session.sessionId)
-                const [userMessage, assistantMessage] = await session.chat(body.text)
 
-                // 用户信息
-                yield sse({
-                    event: 'result',
-                    data: userMessage,
-                })
+                async function doo() {
+                    const [userMessage, assistantMessage] = await session.chat(body.text)
 
-                // 机器人加载信息
-                yield sse({
-                    event: 'result',
-                    data: assistantMessage,
-                })
-                console.log('http://ai.make.meiyi.pro/api/parse/pip2eline')
-                try {
-                    // 1. 发起对 Python 阻塞接口的请求
-                    const fetchPromise = fetch('http://ai.make.meiyi.pro/api/v1/parse/pipeline', {
+                    eventBus.emit(`chat-${sessionId}`, userMessage)
+                    eventBus.emit(`chat-${sessionId}`, assistantMessage)
+
+                    const result = await fetch(`${process.env.LLM_SERVER}/parse/pipeline`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -58,61 +41,20 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                             content: body.text,
                             run_quality_check: false,
                         }),
-                    })
+                    }).then(res => res.json())
 
-                    console.log(2)
-
-                    let isPythonDone = false
-                    let pyResponse: Response | null = null
-
-                    // 2. 优雅的心跳循环：在等待期间，利用 Promise.race 竞速机制
-                    while (!isPythonDone) {
-                        // 竞速：要么 Python 返回了，要么 3 秒超时触发心跳
-                        const raceResult = await Promise.race([
-                            fetchPromise.then(res => ({ type: 'done', res })),
-                            new Promise<{ type: 'heartbeat' }>(resolve =>
-                                setTimeout(resolve, 3000, { type: 'heartbeat' }),
-                            ),
-                        ])
-
-                        if (raceResult.type === 'heartbeat') {
-                            // 如果 3 秒到了 Python 还没返回，推一个心跳包安抚前端并保活连接
-                            yield sse({
-                                event: 'heartbeat',
-                                data: 'AI 正在深度思考中，请稍候...',
-                            })
-                        }
-                        else {
-                            // Python 终于返回了，跳出循环
-                            isPythonDone = true
-                            pyResponse = (raceResult as { type: string, res: Response }).res
-                        }
-                    }
-
-                    // 3. 处理 Python 的返回结果
-                    if (!pyResponse!.ok)
-                        throw new Error(`Python 返回错误: ${pyResponse!.status}`)
-                    const pyData = await pyResponse!.json() as Success<ApiResponse>
-                    console.log(pyData)
-                    const datas = await session.receiveResponseMessage(assistantMessage, pyData.data)
+                    const datas = await session.receiveResponseMessage(assistantMessage, result.data)
 
                     for (let i = 0; i < datas.length; i++) {
-                        // 4. 将最终完整的结果推给前端
-                        yield sse({
-                            event: 'result',
-                            // 假设 Python 返回了 {"data": "..."}
-                            data: datas[i],
-                        })
+                        eventBus.emit(`chat-${session.sessionId}`, datas[i])
                     }
                 }
-                catch (error: any) {
-                    yield sse({
-                        event: 'error',
-                        data: error.message,
-                    })
-                }
 
-                // 【核心变化 3】：不再需要手动 stream.close()，函数执行结束（return），Elysia 自动关闭流
+                doo()
+
+                return {
+                    sessionId: session.sessionId,
+                }
             }, {
                 params: t.Object({
                     sessionId: t.Optional(t.String()),
@@ -136,4 +78,72 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
         })
         .get('/chat', () => {
             return SessionService.getAllSession()
+        })
+        .get('/chat/sse/:sessionId', async function* ({ request, params: { sessionId } }) {
+            yield sse({
+                data: '',
+                event: 'ready',
+            })
+
+            const queue: SSEPayload[] = []
+            let resolvePromise: (() => void) | null = null
+
+            const pushToStream = (event: string, data?: any) => {
+                queue.push({
+                    data: typeof data === 'object' ? JSON.stringify(data) : String(data),
+                    event,
+                })
+                if (resolvePromise) {
+                    resolvePromise()
+                    resolvePromise = null
+                }
+            }
+
+            const heartbeatInterval = setInterval(() => {
+                pushToStream('heartbeat', 'ping')
+            }, 3000)
+
+            const onCustomEvent = (data: any) => {
+                pushToStream('message', data)
+            }
+            eventBus.on(`chat-${sessionId}`, onCustomEvent)
+
+            let isDisconnected = false
+            request.signal.addEventListener('abort', () => {
+                isDisconnected = true
+                clearInterval(heartbeatInterval)
+                eventBus.off(`chat-${sessionId}`, onCustomEvent)
+                // 唤醒并退出生成器死循环
+                if (resolvePromise)
+                    resolvePromise()
+            })
+
+            try {
+                // eslint-disable-next-line no-unmodified-loop-condition
+                while (!isDisconnected) {
+                    // 如果队列为空，则挂起阻塞，直到有新事件触发 pushToStream
+                    if (queue.length === 0) {
+                        await new Promise<void>((resolve) => {
+                            resolvePromise = resolve
+                        })
+                    }
+
+                    // 依次吐出累积的消息
+                    while (queue.length > 0) {
+                        const msg = queue.shift()
+                        if (msg) {
+                            yield sse(msg)
+                        }
+                    }
+                }
+            }
+            finally {
+                // 防御性清理（即使因为其他异常跳出，也能确保释放资源）
+                clearInterval(heartbeatInterval)
+                eventBus.off(`chat-${sessionId}`, onCustomEvent)
+            }
+        }, {
+            params: t.Object({
+                sessionId: t.String(),
+            }),
         }))

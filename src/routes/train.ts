@@ -52,29 +52,12 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                     },
                     extra_dataset_ids: [],
                 }))
-                const result = await fetch('http://172.0.0.1:8002/api/data/governance/rag/train/from-files', {
+                const result = await fetch(`${process.env.LLM_SERVER}/data/governance/rag/train/from-files`, {
                     method: 'POST',
                     body: formData,
                 }).then(res => res.json())
 
-                console.log('result', result)
                 return result
-
-                // console.log('/api/exec/train/start')
-                // const result = await fetch('http://172.0.0.1:8002/api/exec/train/start', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({
-                //         train_cfg: {
-                //             base_model: body.model_id,
-                //             dataset_uri: 'governance://ds_a1b2c3d4e5f6',
-                //         },
-                //         dry_run: false,
-                //     }),
-                // }).then(res => res.json())
-
-                // console.log('result', result)
-                // return result
             }, {
                 body: t.Object({
                     files: t.Files({
@@ -83,7 +66,7 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
                 }),
             })
             .post('/evaluate', async () => {
-                return fetch('http://172.0.0.1:8002/api/exec/train/evaluate', {
+                return fetch(`${process.env.LLM_SERVER}/exec/train/evaluate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

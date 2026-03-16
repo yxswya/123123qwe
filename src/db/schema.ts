@@ -56,6 +56,7 @@ export type SelectMessage = typeof messages.$inferSelect
 export const rags = sqliteTable('rags', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
     sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
     messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
     indexVersion: text('index_version').notNull(), // 索引版本
     content: text('content').notNull(),

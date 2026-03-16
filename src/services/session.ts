@@ -14,7 +14,7 @@ export class SessionService {
         this.userId = userId
     }
 
-    async initialize(sessionId: string) {
+    async initialize(sessionId: string | undefined) {
         await this.initSession(sessionId)
     }
 
@@ -28,17 +28,10 @@ export class SessionService {
     }
 
     // 向 RAG 表添加记录
-    async appendRag(messageId: string, indexVersion: string, content: string): Promise<SelectRag> {
-        const rag: NewRag = {
-            sessionId: this.sessionId,
-            messageId,
-            indexVersion,
-            content,
-        }
-
+    async appendRag(rag: NewRag): Promise<SelectMessage> {
         return await db.transaction(async (tx) => {
             // 新增消息记录
-            const [updatedRag] = await tx.insert(rags)
+            await tx.insert(rags)
                 .values(rag)
                 .returning()
 
@@ -47,13 +40,22 @@ export class SessionService {
                 .set({ lastMessageAt: new Date() })
                 .where(eq(sessions.id, this.sessionId))
 
-            return updatedRag
+            const [message] = await tx.update(messages).set({
+                content: JSON.stringify({
+                    stage: 'rag-build-index',
+                    status: 'success',
+                    title: rag.title,
+                }),
+                type: 'json',
+            }).where(eq(messages.id, rag.messageId)).returning()
+
+            return message ?? null
         })
     }
 
     // 向数据库添加机器人消息
-    async appendAssistantMessage() {
-        const message: NewMessage = {
+    async appendAssistantMessage(message?: NewMessage) {
+        message = message || {
             sessionId: this.sessionId,
             senderId: 'system-bot-id',
             content: '',
@@ -78,13 +80,13 @@ export class SessionService {
 
     // 向数据库添加机器人消息
     async updateAssistantMessage(assistantMessage: SelectMessage, response: ApiResponse) {
-        let result: SelectMessage[] = []
+        // let result: SelectMessage[] = []
         const content = JSON.stringify(response)
 
         // TODO: 解析数据，根据里面的数据相对应的处理
-        const otherAction = this.transformResponse(response)
+        // const otherAction = this.transformResponse(response)
 
-        await db.transaction(async (tx) => {
+        return await db.transaction(async (tx) => {
             // 新增消息记录
             const [updatedMessage] = await tx.update(messages)
                 .set({
@@ -96,16 +98,16 @@ export class SessionService {
                 .returning()
 
             // 将服务返回的数据和解析出来的数据一同传递给sse
-            const r = await otherAction()
-            result = [updatedMessage, ...r]
+            // const r = await otherAction()
+            // result = [updatedMessage, ...r]
 
             // 更新会话最新时间
             await tx.update(sessions)
                 .set({ lastMessageAt: new Date() })
                 .where(eq(sessions.id, assistantMessage.sessionId))
-        })
 
-        return result
+            return updatedMessage
+        })
     }
 
     // 向数据库添加用户消息
@@ -194,25 +196,10 @@ export class SessionService {
     }
 
     async receiveResponseMessage(assistantMessage: SelectMessage, response: ApiResponse): Promise<SelectMessage[]> {
-        if (!hasAnswer(response)) {
-            if (response.intent.actions.includes('AGENT_CREATE') && response.workflow_hint.stage === 'ready_for_agent_create') {
-                const slots = response.intent.slots
-                const agent: NewAgent = {
-                    agentName: slots.agent_name || `智能体一号${Date.now()}`,
-                    sessionId: assistantMessage.sessionId,
-                }
-                // 开始创建智能体
-                await db.insert(agents).values(agent)
-            }
-            else if (response.intent.actions.includes('AGENT_UPDATE') && response.workflow_hint.stage === 'continue') {
-                console.log('更新智能体')
-            }
-        }
-
         return await this.updateAssistantMessage(assistantMessage, response)
     }
 
-    async initSession(sessionId: string) {
+    async initSession(sessionId: string | undefined) {
         if (sessionId) {
             this.sessionId = sessionId
             this.session = await this.getSession()

@@ -1,3 +1,4 @@
+import type { NewMessage, NewRag } from '../db/schema'
 import type { GovernanceRagResponse, GovernanceResponse } from '../types/governance'
 import type { RagAnswerResponse, RagBuildResponse } from '../types/rag'
 import type { RagBuildParams } from '../types/response'
@@ -7,6 +8,7 @@ import Elysia, { sse, t } from 'elysia'
 import { authPlugin } from '../plugins/auth'
 import { FileService } from '../services/file'
 import { SessionService } from '../services/session'
+import eventBus from '../utils/event-bus'
 
 export const governanceRoutes = new Elysia({ prefix: '/governance' })
     .use(authPlugin)
@@ -36,13 +38,12 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
                 formData.append('task_type', 'rag')
 
-                const data = await fetch('http://172.0.0.1:8002/api/governance/process/batch/enhanced', {
+                const data = await fetch(`${process.env.LLM_SERVER}/governance/process/batch/enhanced`, {
                     method: 'POST',
                     body: formData,
                 })
                     .then(res => res.json())
                     .then((data) => {
-                        console.log(data)
                         return data as GovernanceResponse
                     })
 
@@ -76,57 +77,85 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 const session = new SessionService(user.username) // TODO:
                 await session.initialize(sessionId)
 
-                const files = body.files as File[] | File
-                const fileArray = Array.isArray(files) ? files : [files]
-
-                const formData = new FormData()
-                const datasetFileMetas = []
-                for (const file of fileArray) {
-                    formData.append('dataset_files', file)
-                    datasetFileMetas.push({ name: file.name, description: `${file.name}-知识库文档`, task_type: 'rag' })
+                const msg: NewMessage = {
+                    sessionId: session.sessionId,
+                    senderId: 'system-bot-id',
+                    content: JSON.stringify({
+                        stage: 'rag-build-index',
+                        status: 'pending',
+                        title: body.title,
+                    }),
+                    type: 'json',
                 }
-                formData.append('body', JSON.stringify({
-                    rag_cfg: {
-                        backend: 'pgvector',
-                        embedder: 'sentence-transformers/all-MiniLM-L6-v2',
-                        dim: 384,
-                        metric: 'cosine',
-                        chunk: { size: 512, overlap: 64 },
-                    },
-                    dataset_file_metas: datasetFileMetas,
-                }))
+                const message = await session.appendAssistantMessage(msg)
 
-                const data = await fetch('http://172.0.0.1:8002/api/data/governance/rag/build/from-files', {
-                    method: 'POST',
-                    body: formData,
-                })
-                    .then(res => res.json())
-                    .then(data => data.data as GovernanceRagResponse)
+                eventBus.emit(`chat-${sessionId}`, message)
 
-                // 将 governance 数组转换为 JSONL 格式（每行一个 JSON 对象）
-                const governanceJsonl = data.answer.governance.map(item => JSON.stringify(item)).join('\n')
+                async function doo() {
+                    // session.appendAssistantMessage()
 
-                // 保存文件并记录到数据库
-                const fileService = new FileService(sessionId)
-                await fileService.saveFile(
-                    governanceJsonl,
-                    `governance-${Date.now()}.jsonl`,
-                    body.message_id,
-                )
+                    const files = body.files as File[] | File
+                    const fileArray = Array.isArray(files) ? files : [files]
 
-                const result = await session.appendRag(
-                    body.message_id,
-                    data.answer.rag.artifacts.index_version,
-                    JSON.stringify(data),
-                )
+                    const formData = new FormData()
+                    const datasetFileMetas = []
+                    for (const file of fileArray) {
+                        formData.append('dataset_files', file)
+                        datasetFileMetas.push({ name: file.name, description: `${file.name}-知识库文档`, task_type: 'rag' })
+                    }
+                    formData.append('body', JSON.stringify({
+                        rag_cfg: {
+                            backend: 'pgvector',
+                            embedder: 'sentence-transformers/all-MiniLM-L6-v2',
+                            dim: 384,
+                            metric: 'cosine',
+                            chunk: { size: 512, overlap: 64 },
+                        },
+                        dataset_file_metas: datasetFileMetas,
+                    }))
 
-                return result
+                    const data = await fetch(`${process.env.LLM_SERVER}/data/governance/rag/build/from-files`, {
+                        method: 'POST',
+                        body: formData,
+                    })
+                        .then(res => res.json())
+                        .then(data => data.data as GovernanceRagResponse)
+
+                    // 将 governance 数组转换为 JSONL 格式（每行一个 JSON 对象）
+                    const governanceJsonl = data.answer.governance.map(item => JSON.stringify(item)).join('\n')
+
+                    // 保存文件并记录到数据库
+                    const fileService = new FileService(sessionId)
+                    await fileService.saveFile(
+                        governanceJsonl,
+                        `governance-${Date.now()}.jsonl`,
+                        message.id,
+                    )
+
+                    const newRag: NewRag = {
+                        sessionId: session.sessionId,
+                        indexVersion: data.answer.rag.artifacts.index_version,
+                        content: JSON.stringify(data),
+                        title: body.title,
+                        messageId: message.id,
+                    }
+
+                    const newMessage = await session.appendRag(newRag)
+                    eventBus.emit(`chat-${sessionId}`, newMessage)
+                }
+
+                doo()
+
+                return {
+                    message: 'success',
+                }
             }, {
                 body: t.Object({
                     files: t.Files({
                         minItems: 1,
                     }),
                     message_id: t.String(),
+                    title: t.String(),
                 }),
                 params: t.Object({
                     sessionId: t.String(),
