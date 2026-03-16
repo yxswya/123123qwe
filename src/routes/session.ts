@@ -43,11 +43,8 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
                         }),
                     }).then(res => res.json())
 
-                    const datas = await session.receiveResponseMessage(assistantMessage, result.data)
-
-                    for (let i = 0; i < datas.length; i++) {
-                        eventBus.emit(`chat-${session.sessionId}`, datas[i])
-                    }
+                    const newMessage = await session.receiveResponseMessage(assistantMessage, result.data)
+                    eventBus.emit(`chat-${session.sessionId}`, newMessage)
                 }
 
                 doo()
