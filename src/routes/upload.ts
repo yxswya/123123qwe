@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import path, { join } from 'node:path'
 import Elysia, { t } from 'elysia'
-import { authPlugin } from '../plugins/auth'
+import { AuthService } from '../plugins/auth'
 
 const UPLOADS_DIR = path.join(path.resolve(), 'uploads')
 async function ensureUploadDir() {
@@ -15,15 +15,8 @@ async function ensureUploadDir() {
 ensureUploadDir()
 
 export const uploadRoutes = new Elysia({ prefix: '/upload' })
-    .use(authPlugin)
-    .guard({
-        beforeHandle: ({ user, set }) => {
-            if (!user) {
-                set.status = 401
-                return { error: 'Unauthorized' }
-            }
-        },
-    }, app => app.post('/', async ({ body }) => {
+    .use(AuthService)
+    .post('/', async ({ body }) => {
         const uploadedFiles: string[] = []
         const files = body.files as File[] | File
 
@@ -62,4 +55,4 @@ export const uploadRoutes = new Elysia({ prefix: '/upload' })
             summary: '上传文件',
             description: '上传一个或多个文件，返回上传后的文件路径数组。',
         },
-    }))
+    })

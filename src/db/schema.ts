@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid'
 export const users = sqliteTable('users', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
     username: text('username').notNull().unique(),
+    password: text('password').notNull(),
     avatarUrl: text('avatar_url'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 })

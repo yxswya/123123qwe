@@ -1,26 +1,40 @@
+import { bearer } from '@elysiajs/bearer'
 import { jwt } from '@elysiajs/jwt'
-import Elysia, { t } from 'elysia'
+import Elysia from 'elysia'
 
-export const authPlugin = new Elysia({ name: 'auth-plugin' })
+export const AuthService = new Elysia({ name: 'Auth.Service' })
     .use(
         jwt({
             name: 'jwt',
             secret: 'Fischl von Luftschloss Narfidort',
         }),
     )
-    .derive({ as: 'global' }, async ({ jwt, cookie: { auth } }) => {
-        // 自动从名为 'auth' 的 cookie 中提取 token
-        if (!auth.value) {
-            return { user: { username: 'default' } }
-        }
+    .use(bearer())
+    .macro({
+        auth: {
+            async resolve({ bearer, status, set, jwt }) {
+                console.log(bearer)
+                if (!bearer) {
+                    set.headers[
+                        'WWW-Authenticate'
+                    ] = `Bearer realm='sign', error="invalid_request"`
 
-        const payload = await jwt.verify(auth.value as string)
+                    return status(401, 'Unauthorized')
+                }
 
-        if (!payload) {
-            return { user: { username: 'default' } }
-        }
+                const payload = await jwt.verify(bearer)
 
-        return {
-            user: payload, // 此时 user 的类型被推导为 { id: number, username: string }
-        }
+                if (!payload) {
+                    set.headers[
+                        'WWW-Authenticate'
+                    ] = `Bearer realm='sign', error="invalid_token"`
+
+                    return status(401, 'Unauthorized')
+                }
+
+                return {
+                    user: payload,
+                }
+            },
+        },
     })

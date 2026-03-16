@@ -1,16 +1,9 @@
 import Elysia from 'elysia'
-import { authPlugin } from '../plugins/auth'
+import { AuthService } from '../plugins/auth'
 
 export const modelRoutes = new Elysia({ prefix: '/model' })
-    .use(authPlugin)
-    .guard({
-        beforeHandle: ({ user, set }) => {
-            if (!user) {
-                set.status = 401
-                return { error: 'Unauthorized' }
-            }
-        },
-    }, app => app.get('/recommend', async () => {
+    .use(AuthService)
+    .get('/recommend', async () => {
         return {
             answer: {
                 user_request: '用户希望构建一个用于企业内部业务流程的智能体，主要功能是供内部员工进行日常检索和查看，并明确将“上线最快”作为首要目标。用户当前提及“训练模型”，表明项目已进入模型构建阶段，但具体的业务领域、数据类型和性能指标仍未明确。',
@@ -79,4 +72,4 @@ export const modelRoutes = new Elysia({ prefix: '/model' })
             ],
             error: null,
         }
-    }))
+    })
