@@ -1,5 +1,5 @@
 import Elysia from 'elysia'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 
 export const modelRoutes = new Elysia({ prefix: '/model' })
     .use(AuthService)

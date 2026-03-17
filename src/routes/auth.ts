@@ -3,7 +3,7 @@ import { Elysia, t } from 'elysia'
 
 import { db } from '../db'
 import { users } from '../db/schema'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
     .use(AuthService)

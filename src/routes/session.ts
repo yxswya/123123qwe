@@ -1,6 +1,6 @@
 import type { SSEPayload } from 'elysia'
 import Elysia, { sse, t } from 'elysia'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 import { SessionService } from '../services/session'
 
 import eventBus from '../utils/event-bus'
@@ -54,7 +54,6 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
             auth: true,
         })
     .get('/chat/:sessionId', async ({ params: { sessionId } }) => {
-        console.log(123123123)
         return SessionService.getSessionById(sessionId)
     }, {
         params: t.Object({

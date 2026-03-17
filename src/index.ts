@@ -14,7 +14,6 @@ import { userRoutes } from './routes/user'
 const app = new Elysia()
     .use(cors())
     .use(openapi())
-    // 全局 API 前缀
     .group('/api/v1', app =>
         app
             .use(authRoutes)
@@ -25,7 +24,6 @@ const app = new Elysia()
             .use(trainRoutes)
             .use(governanceRoutes)
             .use(ragRoutes))
-    .get('/', () => 'Hello World')
     .listen(3002)
 
 export type App = typeof app

@@ -1,5 +1,5 @@
 import Elysia, { t } from 'elysia'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 
 export const trainRoutes = new Elysia({ prefix: '/train' })
     .use(AuthService)

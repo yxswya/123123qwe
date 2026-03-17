@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import path, { join } from 'node:path'
 import Elysia, { t } from 'elysia'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 
 const UPLOADS_DIR = path.join(path.resolve(), 'uploads')
 async function ensureUploadDir() {

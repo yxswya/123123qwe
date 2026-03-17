@@ -1,7 +1,7 @@
 import type { NewMessage, NewRag } from '../db/schema'
 import type { GovernanceRagResponse, GovernanceResponse } from '../types/governance'
 import Elysia, { t } from 'elysia'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 import { FileService } from '../services/file'
 import { SessionService } from '../services/session'
 import eventBus from '../utils/event-bus'

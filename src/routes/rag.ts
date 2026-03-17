@@ -3,7 +3,7 @@ import type { RagAnswerResponse, RagBuildResponse } from '../types/rag'
 // import { stat } from 'node:fs/promises'
 // import path from 'node:path'
 import Elysia, { sse, t } from 'elysia'
-import { AuthService } from '../plugins/auth'
+import { AuthService } from '../services/auth'
 // import { SessionService } from '../services/session'
 
 // 2MB 阈值 区分同步或异步的阈值

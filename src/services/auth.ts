@@ -13,7 +13,6 @@ export const AuthService = new Elysia({ name: 'Auth.Service' })
     .macro({
         auth: {
             async resolve({ bearer, status, set, jwt }) {
-                console.log(bearer)
                 if (!bearer) {
                     set.headers[
                         'WWW-Authenticate'
