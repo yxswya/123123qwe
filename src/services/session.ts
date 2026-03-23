@@ -1,12 +1,12 @@
 import type { EventEmitter } from 'node:events'
-import type { NewMessage, NewRag, SelectMessage, SelectSession } from '../db/schema'
+import type { NewMessage, NewRag, NewTrain, SelectMessage, SelectSession } from '../db/schema'
 import type { IMessageRepository, ISessionRepository } from '../repositories'
 
 import type { ApiResponse } from '../types/response'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db'
-import { messages, rags, sessions } from '../db/schema'
+import { messages, rags, sessions, trains } from '../db/schema'
 import { MessageRepository, SessionRepository } from '../repositories'
 import eventBus from '../utils/event-bus'
 
@@ -101,6 +101,31 @@ export class SessionService {
                     type: 'json',
                 })
                 .where(eq(messages.id, rag.messageId))
+                .returning()
+
+            return message ?? null
+        })
+    }
+
+    /** 添加 Train 记录 */
+    async appendTrain(train: NewTrain): Promise<SelectMessage | null> {
+        return await db.transaction(async (tx) => {
+            await tx.update(sessions)
+                .set({ lastMessageAt: new Date() })
+                .where(eq(sessions.id, this._sessionId))
+
+            await tx.insert(trains).values(train)
+
+            const [message] = await tx.update(messages)
+                .set({
+                    content: JSON.stringify({
+                        stage: 'model-train',
+                        status: 'success',
+                        title: train.title,
+                    }),
+                    type: 'json',
+                })
+                .where(eq(messages.id, train.messageId))
                 .returning()
 
             return message ?? null

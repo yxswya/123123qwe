@@ -124,3 +124,47 @@ export interface GovernanceResponse {
     }
     filename_mapping: Record<string, string>
 }
+
+export interface GovernanceTrainResponse {
+    answer: {
+        run_id: string
+        stage: 'train'
+        cached: boolean
+        inputs: {
+            train_cfg: {
+                method: string
+                base_model: string
+                epochs: number
+                lr: number
+                batch_size: number
+                max_seq_len: number
+                dry_run: boolean
+                dataset_uri: string
+            }
+        }
+        artifacts: {
+            ckpt_id: string
+            ckpt_uri: string
+            mlflow_run: string
+        }
+        metrics: {
+            eval_accuracy_estimated: number
+        }
+        early_stop: false
+        elapsed_ms: number
+        registered_model: {
+            id: string
+            model_uri: string
+            task: string
+            model_type: string
+            note: string
+            exists_local: boolean
+            file_size: number
+            mtime: string
+            created_at: string
+        }
+    }
+    confidence: number
+    sources: string[]
+    error: null
+}

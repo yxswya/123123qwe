@@ -56,6 +56,7 @@ export class SessionRepository implements ISessionRepository {
                 messages: {
                     with: {
                         rags: true,
+                        trains: true,
                     },
                 },
                 files: true,

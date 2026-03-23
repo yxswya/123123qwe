@@ -67,6 +67,19 @@ export const rags = sqliteTable('rags', {
 export type NewRag = typeof rags.$inferInsert
 export type SelectRag = typeof rags.$inferSelect
 
+// TRAIN 模型训练产物
+export const trains = sqliteTable('trains', {
+    id: text('id').$defaultFn(() => nanoid()).primaryKey(),
+    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type NewTrain = typeof trains.$inferInsert
+export type SelectTrain = typeof trains.$inferSelect
+
 // 文件上传记录
 export const files = sqliteTable('files', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
@@ -106,6 +119,7 @@ export const sessionsRelations = relations(sessions, ({ many }) => ({
     participants: many(participants),
     messages: many(messages),
     rags: many(rags),
+    trains: many(trains),
     files: many(files),
     agents: many(agents),
 }))
@@ -135,6 +149,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
         references: [messages.id],
     }),
     rags: many(rags),
+    trains: many(trains),
     files: many(files),
 }))
 
@@ -145,6 +160,17 @@ export const ragsRelations = relations(rags, ({ one }) => ({
     }),
     message: one(messages, {
         fields: [rags.messageId],
+        references: [messages.id],
+    }),
+}))
+
+export const trainsRelations = relations(trains, ({ one }) => ({
+    session: one(sessions, {
+        fields: [trains.sessionId],
+        references: [sessions.id],
+    }),
+    message: one(messages, {
+        fields: [trains.messageId],
         references: [messages.id],
     }),
 }))

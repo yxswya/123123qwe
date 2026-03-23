@@ -1,5 +1,5 @@
-import type { NewMessage, NewRag } from '../db/schema'
-import type { GovernanceRagResponse, GovernanceResponse } from '../types/governance'
+import type { NewMessage, NewRag, NewTrain } from '../db/schema'
+import type { GovernanceRagResponse, GovernanceResponse, GovernanceTrainResponse } from '../types/governance'
 import Elysia, { t } from 'elysia'
 import { AuthService } from '../services/auth'
 import { FileService } from '../services/file'
@@ -12,8 +12,8 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
         if (!sessionId)
             return []
 
-        const session = new SessionService(user.username)
-        await session.initialize(sessionId)
+        const session = new SessionService(user.username, sessionId)
+        await session.ensureSession()
 
         const files = body.files as File[] | File
         const fileArray = Array.isArray(files) ? files : [files]
@@ -62,8 +62,8 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
         auth: true,
     })
     .post('/rag/:sessionId', async ({ body, user, params: { sessionId } }) => {
-        const session = new SessionService(user.username) // TODO:
-        await session.initialize(sessionId)
+        const session = new SessionService(user.username, sessionId) // TODO:
+        await session.ensureSession()
 
         const msg: NewMessage = {
             sessionId: session.sessionId,
@@ -148,6 +148,96 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
         }),
         auth: true,
     })
-    .post('/train', () => {
+    .post('/train/:sessionId', async ({ body, user, params: { sessionId } }) => {
+        const session = new SessionService(user.username, sessionId) // TODO:
+        await session.ensureSession()
 
+        const msg: NewMessage = {
+            sessionId: session.sessionId,
+            senderId: 'system-bot-id',
+            content: JSON.stringify({
+                stage: 'model-train',
+                status: 'pending',
+                title: body.title,
+            }),
+            type: 'json',
+        }
+        const message = await session.appendAssistantMessage(msg)
+
+        eventBus.emit(`chat-${sessionId}`, message)
+
+        async function doWork() {
+            const files = body.files as File[] | File
+            const fileArray = Array.isArray(files) ? files : [files]
+
+            const formData = new FormData()
+            const datasetFileMetas = []
+            for (const file of fileArray) {
+                formData.append('dataset_files', file)
+                datasetFileMetas.push({
+                    name: file.name,
+                    description: `${file.name}-知识库文档`,
+                    task_type: 'rag',
+                    intended_use: '知识库检索',
+                })
+            }
+            formData.append('body', JSON.stringify({
+                dataset_file_metas: datasetFileMetas,
+                rag_cfg: {
+                    backend: 'milvus',
+                    embedder: 'sentence-transformers/all-MiniLM-L6-v2',
+                    chunk: { size: 800, overlap: 120 },
+                },
+                train_cfg: {
+                    method: 'lora',
+                    base_model: 'facebook/opt-125m',
+                    epochs: 1,
+                    batch_size: 1,
+                    max_seq_len: 256,
+                    dry_run: true,
+                },
+                extra_dataset_ids: ['datasets/other_docs'],
+            }))
+
+            const data = await fetch(`${process.env.LLM_SERVER}/data/governance/rag/train/from-files`, {
+                method: 'POST',
+                body: formData,
+            })
+                .then(res => res.json())
+                .then((res) => {
+                    console.log(res)
+                    return res
+                })
+                .then(data => data.data as GovernanceTrainResponse)
+
+            console.log('data', data)
+            const newTrain: NewTrain = {
+                sessionId: session.sessionId,
+                content: JSON.stringify(data),
+                title: body.title,
+                messageId: message.id,
+            }
+
+            const newMessage = await session.appendTrain(newTrain)
+            console.log('newMessage', newMessage)
+            eventBus.emit(`chat-${sessionId}`, newMessage)
+        }
+
+        doWork()
+
+        return {
+            message: 'success',
+        }
+    }, {
+        body: t.Object({
+            files: t.Files({
+                minItems: 1,
+            }),
+            message_id: t.String(),
+            title: t.String(),
+        }),
+        params: t.Object({
+            sessionId: t.String(),
+        }),
+        auth: true,
     })

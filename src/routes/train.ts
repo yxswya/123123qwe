@@ -69,3 +69,25 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
             } }),
         }).then(res => res.json())
     })
+    .post('/chat/:ckpt_id', async ({ params: { ckpt_id }, body }) => {
+        const result = await fetch(`${process.env.LLM_SERVER}/chat/model/start`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model_id: ckpt_id,
+                system_prompt: '你是一个智能客服助手',
+                max_history: 10,
+            }),
+        }).then(res => res.json())
+
+        return result.data as any
+    }, {
+        params: t.Object({
+            ckpt_id: t.String(),
+        }),
+        body: t.Object({
+            text: t.String({}),
+        }),
+    })
