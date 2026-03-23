@@ -57,6 +57,7 @@ export class SessionRepository implements ISessionRepository {
                     with: {
                         rags: true,
                         trains: true,
+                        models: true,
                     },
                 },
                 files: true,

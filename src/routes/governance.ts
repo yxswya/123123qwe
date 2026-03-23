@@ -1,4 +1,4 @@
-import type { NewMessage, NewRag, NewTrain } from '../db/schema'
+import type { NewMessage, NewModel, NewRag, NewTrain } from '../db/schema'
 import type { GovernanceRagResponse, GovernanceResponse, GovernanceTrainResponse } from '../types/governance'
 import Elysia, { t } from 'elysia'
 import { AuthService } from '../services/auth'
@@ -210,16 +210,66 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 .then(data => data.data as GovernanceTrainResponse)
 
             console.log('data', data)
+
+            // 存储训练结果，包含 ckpt_id 和 ckpt_uri
+            const trainData = data.answer.train
             const newTrain: NewTrain = {
                 sessionId: session.sessionId,
                 content: JSON.stringify(data),
                 title: body.title,
                 messageId: message.id,
+                ckptId: trainData.artifacts.ckpt_id,
+                ckptUri: trainData.artifacts.ckpt_uri,
             }
 
-            const newMessage = await session.appendTrain(newTrain)
+            const { message: newMessage, trainId } = await session.appendTrain(newTrain)
             console.log('newMessage', newMessage)
             eventBus.emit(`chat-${sessionId}`, newMessage)
+
+            // 训练完成后，主动调用注册接口注册模型
+            if (trainData.artifacts.ckpt_uri && trainId) {
+                try {
+                    const registerResponse = await fetch(`${process.env.LLM_SERVER}/exec/train/model/use`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model_uri: trainData.artifacts.ckpt_uri,
+                            task: 'chat',
+                            model_type: 'causal-lm',
+                            note: body.title,
+                        }),
+                    })
+                        .then(res => res.json())
+
+                    console.log('registerResponse', registerResponse)
+
+                    if (registerResponse.code === 0 && registerResponse.data?.answer) {
+                        const registeredModel = registerResponse.data.answer
+                        const newModel: NewModel = {
+                            sessionId: session.sessionId,
+                            messageId: message.id,
+                            trainId,
+                            externalId: registeredModel.id,
+                            modelUri: registeredModel.model_uri,
+                            task: registeredModel.task,
+                            modelType: registeredModel.model_type,
+                            note: registeredModel.note,
+                            existsLocal: registeredModel.exists_local,
+                            fileSize: registeredModel.file_size,
+                            mtime: registeredModel.mtime,
+                            externalCreatedAt: registeredModel.created_at,
+                        }
+
+                        await session.appendModel(newModel)
+                        eventBus.emit(`chat-${sessionId}`, { type: 'model-registered', data: registeredModel })
+                    }
+                }
+                catch (err) {
+                    console.error('注册模型失败:', err)
+                }
+            }
         }
 
         doWork()

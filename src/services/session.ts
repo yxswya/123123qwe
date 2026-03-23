@@ -1,12 +1,12 @@
 import type { EventEmitter } from 'node:events'
-import type { NewMessage, NewRag, NewTrain, SelectMessage, SelectSession } from '../db/schema'
+import type { NewMessage, NewModel, NewRag, NewTrain, SelectMessage, SelectSession } from '../db/schema'
 import type { IMessageRepository, ISessionRepository } from '../repositories'
 
 import type { ApiResponse } from '../types/response'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db'
-import { messages, rags, sessions, trains } from '../db/schema'
+import { messages, models, rags, sessions, trains } from '../db/schema'
 import { MessageRepository, SessionRepository } from '../repositories'
 import eventBus from '../utils/event-bus'
 
@@ -108,13 +108,13 @@ export class SessionService {
     }
 
     /** 添加 Train 记录 */
-    async appendTrain(train: NewTrain): Promise<SelectMessage | null> {
+    async appendTrain(train: NewTrain): Promise<{ message: SelectMessage | null, trainId: string | null }> {
         return await db.transaction(async (tx) => {
             await tx.update(sessions)
                 .set({ lastMessageAt: new Date() })
                 .where(eq(sessions.id, this._sessionId))
 
-            await tx.insert(trains).values(train)
+            const [trainRecord] = await tx.insert(trains).values(train).returning()
 
             const [message] = await tx.update(messages)
                 .set({
@@ -122,13 +122,27 @@ export class SessionService {
                         stage: 'model-train',
                         status: 'success',
                         title: train.title,
+                        trainId: trainRecord?.id,
                     }),
                     type: 'json',
                 })
                 .where(eq(messages.id, train.messageId))
                 .returning()
 
-            return message ?? null
+            return { message: message ?? null, trainId: trainRecord?.id ?? null }
+        })
+    }
+
+    /** 添加 Model 记录 */
+    async appendModel(model: NewModel) {
+        return await db.transaction(async (tx) => {
+            await tx.update(sessions)
+                .set({ lastMessageAt: new Date() })
+                .where(eq(sessions.id, this._sessionId))
+
+            const [modelRecord] = await tx.insert(models).values(model).returning()
+
+            return modelRecord ?? null
         })
     }
 

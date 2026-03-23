@@ -1,3 +1,84 @@
+// 注册模型信息
+export interface RegisteredModel {
+    id: string
+    model_uri: string
+    task: string
+    model_type: string
+    note: string
+    exists_local: boolean
+    file_size: number
+    mtime: string
+    created_at: string
+}
+
+// 模型列表响应
+export interface ModelListResponse {
+    code: number
+    message: string
+    data: {
+        answer: {
+            models: RegisteredModel[]
+        }
+        confidence: number
+        sources: string[]
+        error: string | null
+    }
+    trace_id: string
+}
+
+// 注册模型请求
+export interface RegisterModelRequest {
+    model_uri: string
+    task: string
+    model_type: string
+    note?: string
+}
+
+// 注册模型响应
+export interface RegisterModelResponse {
+    code: number
+    message: string
+    data: {
+        answer: RegisteredModel & {
+            usage_hint?: {
+                env: Record<string, string>
+                cli_example: string
+            }
+        }
+        confidence: number
+        sources: string[]
+        error: string | null
+    }
+    trace_id: string
+}
+
+// 模型对话请求
+export interface ModelPredictRequest {
+    model_id: string
+    prompt: string
+    max_new_tokens?: number
+}
+
+// 模型对话响应
+export interface ModelPredictResponse {
+    code: number
+    message: string
+    data: {
+        answer: {
+            model_uri: string
+            task: string
+            prompt: string
+            text: string
+            max_new_tokens: number
+            temperature: number
+        }
+        confidence: number
+        sources: string[]
+        error: string | null
+    }
+    trace_id: string
+}
+
 export interface GovernanceRagResponse {
     answer: {
         governance: [
@@ -127,44 +208,57 @@ export interface GovernanceResponse {
 
 export interface GovernanceTrainResponse {
     answer: {
-        run_id: string
-        stage: 'train'
-        cached: boolean
-        inputs: {
-            train_cfg: {
-                method: string
-                base_model: string
-                epochs: number
-                lr: number
-                batch_size: number
-                max_seq_len: number
-                dry_run: boolean
-                dataset_uri: string
+        governance: object[]
+        rag: {
+            run_id: string
+            stage: string
+            cached: boolean
+            inputs: object
+            artifacts: object
+            elapsed_ms: number
+            stats: object
+            warnings: []
+        }
+        train: {
+            run_id: string
+            stage: 'train'
+            cached: boolean
+            inputs: {
+                train_cfg: {
+                    method: string
+                    base_model: string
+                    epochs: number
+                    lr: number
+                    batch_size: number
+                    max_seq_len: number
+                    dry_run: boolean
+                    dataset_uri: string
+                }
             }
-        }
-        artifacts: {
-            ckpt_id: string
-            ckpt_uri: string
-            mlflow_run: string
-        }
-        metrics: {
-            eval_accuracy_estimated: number
-        }
-        early_stop: false
-        elapsed_ms: number
-        registered_model: {
-            id: string
-            model_uri: string
-            task: string
-            model_type: string
-            note: string
-            exists_local: boolean
-            file_size: number
-            mtime: string
-            created_at: string
+            artifacts: {
+                ckpt_id: string
+                ckpt_uri: string
+                mlflow_run: string
+            }
+            metrics: {
+                eval_accuracy_estimated: number
+            }
+            early_stop: boolean
+            elapsed_ms: number
+            registered_model?: {
+                id: string
+                model_uri: string
+                task: string
+                model_type: string
+                note: string
+                exists_local: boolean
+                file_size: number
+                mtime: string
+                created_at: string
+            }
         }
     }
     confidence: number
     sources: string[]
-    error: null
+    error: string | null
 }

@@ -73,9 +73,33 @@ export const trains = sqliteTable('trains', {
     sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+    ckptId: text('ckpt_id'),
+    ckptUri: text('ckpt_uri'),
     content: text('content').notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 })
+
+// 注册模型
+export const models = sqliteTable('models', {
+    id: text('id').$defaultFn(() => nanoid()).primaryKey(),
+    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    trainId: text('train_id').references(() => trains.id, { onDelete: 'set null' }),
+    // 外部模型ID（来自LLM服务）
+    externalId: text('external_id').notNull(),
+    modelUri: text('model_uri').notNull(),
+    task: text('task').notNull(),
+    modelType: text('model_type').notNull(),
+    note: text('note'),
+    existsLocal: integer('exists_local', { mode: 'boolean' }).default(true),
+    fileSize: integer('file_size'),
+    mtime: text('mtime'),
+    externalCreatedAt: text('external_created_at'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type NewModel = typeof models.$inferInsert
+export type SelectModel = typeof models.$inferSelect
 
 export type NewTrain = typeof trains.$inferInsert
 export type SelectTrain = typeof trains.$inferSelect
@@ -122,6 +146,7 @@ export const sessionsRelations = relations(sessions, ({ many }) => ({
     trains: many(trains),
     files: many(files),
     agents: many(agents),
+    models: many(models),
 }))
 
 export const participantsRelations = relations(participants, ({ one }) => ({
@@ -150,6 +175,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
     }),
     rags: many(rags),
     trains: many(trains),
+    models: many(models),
     files: many(files),
 }))
 
@@ -164,7 +190,7 @@ export const ragsRelations = relations(rags, ({ one }) => ({
     }),
 }))
 
-export const trainsRelations = relations(trains, ({ one }) => ({
+export const trainsRelations = relations(trains, ({ one, many }) => ({
     session: one(sessions, {
         fields: [trains.sessionId],
         references: [sessions.id],
@@ -172,6 +198,22 @@ export const trainsRelations = relations(trains, ({ one }) => ({
     message: one(messages, {
         fields: [trains.messageId],
         references: [messages.id],
+    }),
+    models: many(models),
+}))
+
+export const modelsRelations = relations(models, ({ one }) => ({
+    session: one(sessions, {
+        fields: [models.sessionId],
+        references: [sessions.id],
+    }),
+    message: one(messages, {
+        fields: [models.messageId],
+        references: [messages.id],
+    }),
+    train: one(trains, {
+        fields: [models.trainId],
+        references: [trains.id],
     }),
 }))
 

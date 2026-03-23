@@ -1,8 +1,112 @@
-import Elysia from 'elysia'
+import type { NewModel } from '../db/schema'
+import type { ModelListResponse, ModelPredictResponse, RegisterModelResponse } from '../types/governance'
+import { eq } from 'drizzle-orm'
+import Elysia, { t } from 'elysia'
+import { db } from '../db'
+import { models } from '../db/schema'
 import { AuthService } from '../services/auth'
+import { SessionService } from '../services/session'
 
 export const modelRoutes = new Elysia({ prefix: '/model' })
     .use(AuthService)
+    // 获取已注册的模型列表
+    .get('/list/:sessionId', async ({ params: { sessionId } }) => {
+        const data = await fetch(`${process.env.LLM_SERVER}/exec/train/model/list`)
+            .then(res => res.json())
+            .then(data => data as ModelListResponse)
+
+        return data
+    }, {
+        params: t.Object({
+            sessionId: t.String(),
+        }),
+        auth: true,
+    })
+    // 获取本地数据库中的模型列表
+    .get('/local/:sessionId', async ({ params: { sessionId } }) => {
+        const modelList = await db.select()
+            .from(models)
+            .where(eq(models.sessionId, sessionId))
+
+        return {
+            code: 0,
+            message: 'OK',
+            data: modelList,
+        }
+    }, {
+        params: t.Object({
+            sessionId: t.String(),
+        }),
+        auth: true,
+    })
+    // 注册模型
+    .post('/register/:sessionId', async ({ body, user, params: { sessionId } }) => {
+        const session = new SessionService(user.username, sessionId)
+        await session.ensureSession()
+
+        const data = await fetch(`${process.env.LLM_SERVER}/exec/train/model/use`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        })
+            .then(res => res.json())
+            .then(data => data as RegisterModelResponse)
+
+        // 存储到数据库
+        if (data.code === 0 && data.data.answer) {
+            const registeredModel = data.data.answer
+            const newModel: NewModel = {
+                sessionId: session.sessionId,
+                externalId: registeredModel.id,
+                modelUri: registeredModel.model_uri,
+                task: registeredModel.task,
+                modelType: registeredModel.model_type,
+                note: registeredModel.note,
+                existsLocal: registeredModel.exists_local,
+                fileSize: registeredModel.file_size,
+                mtime: registeredModel.mtime,
+                externalCreatedAt: registeredModel.created_at,
+            }
+
+            await db.insert(models).values(newModel)
+        }
+
+        return data
+    }, {
+        body: t.Object({
+            model_uri: t.String(),
+            task: t.String(),
+            model_type: t.String(),
+            note: t.Optional(t.String()),
+        }),
+        params: t.Object({
+            sessionId: t.String(),
+        }),
+        auth: true,
+    })
+    // 使用模型对话
+    .post('/predict', async ({ body }) => {
+        const data = await fetch(`${process.env.LLM_SERVER}/exec/train/model/predict`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        })
+            .then(res => res.json())
+            .then(data => data as ModelPredictResponse)
+
+        return data
+    }, {
+        body: t.Object({
+            model_id: t.String(),
+            prompt: t.String(),
+            max_new_tokens: t.Optional(t.Number()),
+        }),
+        auth: true,
+    })
     .get('/recommend', async () => {
         return {
             answer: {
