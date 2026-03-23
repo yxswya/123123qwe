@@ -1,0 +1,28 @@
+POST http://127.0.0.1:8002/api/exec/train/model/predict
+content-type: application/json
+
+{
+    "model_id": "mdl_d154e280",
+    "prompt": "你好",
+    "max_new_tokens": 64
+}
+
+# 返回结果
+# {
+#     "code": 0,
+#     "message": "OK",
+#     "data": {
+#         "answer": {
+#             "model_uri": "file://runs/train/hf_1b4f980c",
+#             "task": "causal-lm",
+#             "prompt": "你好",
+#             "text": "你好好好好好好好好好好好好好好好好好好好好好好好好好好好好好好好好好",
+#             "max_new_tokens": 64,
+#             "temperature": 0.2
+#         },
+#         "confidence": 0.0,
+#         "sources": [],
+#         "error": null
+#     },
+#     "trace_id": ""
+# }

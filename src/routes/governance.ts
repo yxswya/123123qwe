@@ -194,7 +194,6 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                     epochs: 1,
                     batch_size: 1,
                     max_seq_len: 256,
-                    dry_run: true,
                 },
                 extra_dataset_ids: ['datasets/other_docs'],
             }))

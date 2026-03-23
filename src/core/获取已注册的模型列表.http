@@ -1,0 +1,28 @@
+GET http://127.0.0.1:8002/api/exec/train/model/list
+
+# 返回结果
+# {
+#     "code": 0,
+#     "message": "OK",
+#     "data": {
+#         "answer": {
+#             "models": [
+#                 {
+#                     "id": "mdl_d154e280",
+#                     "model_uri": "file://runs/train/hf_1b4f980c",
+#                     "task": "chat",
+#                     "model_type": "causal-lm",
+#                     "note": "我的训练模型",
+#                     "exists_local": true,
+#                     "file_size": 4096,
+#                     "mtime": "2026-03-23T17:09:44.869133",
+#                     "created_at": "2026-03-23T09:18:30.836976"
+#                 }
+#             ]
+#         },
+#         "confidence": 0.0,
+#         "sources": [],
+#         "error": null
+#     },
+#     "trace_id": ""
+# }
