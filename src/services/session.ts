@@ -175,6 +175,41 @@ export class SessionService {
         })
     }
 
+    /** 更新训练阶段状态 */
+    async updateTrainStage(
+        messageId: string,
+        stage: 1 | 2 | 3 | 4 | 5,
+        title: string,
+        extraData?: Record<string, any>,
+    ): Promise<SelectMessage | null> {
+        return await db.transaction(async (tx) => {
+            await tx.update(sessions)
+                .set({ lastMessageAt: new Date() })
+                .where(eq(sessions.id, this._sessionId))
+
+            const content: Record<string, any> = {
+                stage: 'model-train',
+                trainStage: stage,
+                status: stage < 5 ? 'pending' : 'success',
+                title,
+                ...extraData,
+            }
+
+            const [message] = await tx.update(messages)
+                .set({
+                    content: JSON.stringify(content),
+                    type: 'json',
+                })
+                .where(eq(messages.id, messageId))
+                .returning()
+
+            // 发送事件通知前端
+            this._config.eventEmitter.emit(`chat-${this._sessionId}`, message)
+
+            return message ?? null
+        })
+    }
+
     /** 添加助手消息 */
     async appendAssistantMessage(message?: NewMessage): Promise<SelectMessage> {
         const defaultMessage: NewMessage = message ?? {

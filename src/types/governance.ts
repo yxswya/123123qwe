@@ -214,11 +214,18 @@ export interface GovernanceTrainResponse {
             stage: string
             cached: boolean
             inputs: object
-            artifacts: object
+            artifacts: {
+                index_version: string
+                index_uri: string
+                manifest_uri: string
+                embedder: string
+                metric: string
+                dim: number
+            }
             elapsed_ms: number
             stats: object
             warnings: []
-        }
+        } | null
         train: {
             run_id: string
             stage: 'train'

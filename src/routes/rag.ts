@@ -2,7 +2,10 @@ import type { RagAnswerResponse, RagBuildResponse } from '../types/rag'
 // import type { RagBuildParams } from '../types/response'
 // import { stat } from 'node:fs/promises'
 // import path from 'node:path'
+import { eq } from 'drizzle-orm'
 import Elysia, { sse, t } from 'elysia'
+import { db } from '../db'
+import { rags } from '../db/schema'
 import { AuthService } from '../services/auth'
 // import { SessionService } from '../services/session'
 
@@ -11,6 +14,36 @@ import { AuthService } from '../services/auth'
 
 export const ragRoutes = new Elysia({ prefix: '/rag' })
     .use(AuthService)
+    // 获取本地数据库中的 RAG 列表
+    .get('/local/:sessionId', async ({ params: { sessionId } }) => {
+        const ragList = await db.select()
+            .from(rags)
+            .where(eq(rags.sessionId, sessionId))
+
+        return {
+            code: 0,
+            message: 'OK',
+            data: ragList,
+        }
+    }, {
+        params: t.Object({
+            sessionId: t.String(),
+        }),
+        auth: true,
+    })
+    // 获取所有 RAG 列表
+    .get('/all', async () => {
+        const ragList = await db.select()
+            .from(rags)
+
+        return {
+            code: 0,
+            message: 'OK',
+            data: ragList,
+        }
+    }, {
+        auth: true,
+    })
     .post(
         '/build/:sessionId',
         async function* ({ body, params: { sessionId }, user }) {
