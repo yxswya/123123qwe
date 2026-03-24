@@ -1,13 +1,14 @@
 import type { NewMessage, NewModel, NewRag, NewTrain } from '../db/schema'
-import type { GovernanceRagResponse, GovernanceResponse, GovernanceTrainResponse } from '../types/governance'
+import type { GovernanceResponse } from '../types/governance'
 import Elysia, { t } from 'elysia'
 import { AuthService } from '../services/auth'
 import { FileService } from '../services/file'
+import { governanceService, type RagConfig } from '../services/governance'
 import { SessionService } from '../services/session'
 import eventBus from '../utils/event-bus'
 
 // 默认配置
-const DEFAULT_RAG_CFG = {
+const DEFAULT_RAG_CFG: RagConfig = {
     backend: 'milvus',
     embedder: 'sentence-transformers/all-MiniLM-L6-v2',
     chunk: { size: 800, overlap: 120 },
@@ -41,6 +42,13 @@ const TrainCfgSchema = t.Optional(t.Object({
     max_seq_len: t.Optional(t.Number()),
 }))
 
+/**
+ * 将文件列表转换为数组
+ */
+function fileToArray(files: File[] | File): File[] {
+    return Array.isArray(files) ? files : [files]
+}
+
 export const governanceRoutes = new Elysia({ prefix: '/governance' })
     .use(AuthService)
     .post('/:sessionId', async ({ body, user, params: { sessionId } }) => {
@@ -50,8 +58,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
         const session = new SessionService(user.username, sessionId)
         await session.ensureSession()
 
-        const files = body.files as File[] | File
-        const fileArray = Array.isArray(files) ? files : [files]
+        const fileArray = fileToArray(body.files as File[] | File)
 
         const formData = new FormData()
         for (const file of fileArray) {
@@ -97,9 +104,10 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
         auth: true,
     })
     .post('/rag/:sessionId', async ({ body, user, params: { sessionId } }) => {
-        const session = new SessionService(user.username, sessionId) // TODO:
+        const session = new SessionService(user.username, sessionId)
         await session.ensureSession()
 
+        // 创建初始消息
         const msg: NewMessage = {
             sessionId: session.sessionId,
             senderId: 'system-bot-id',
@@ -114,58 +122,46 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
         eventBus.emit(`chat-${sessionId}`, message)
 
-        async function doo() {
-            const files = body.files as File[] | File
-            const fileArray = Array.isArray(files) ? files : [files]
+        // 异步执行 RAG 构建
+        async function executeRagBuild() {
+            const fileArray = fileToArray(body.files as File[] | File)
 
-            const formData = new FormData()
-            const datasetFileMetas = []
-            for (const file of fileArray) {
-                formData.append('dataset_files', file)
-                datasetFileMetas.push({ name: file.name, description: `${file.name}-知识库文档`, task_type: 'rag' })
-            }
-            formData.append('body', JSON.stringify({
-                rag_cfg: {
-                    backend: 'pgvector',
-                    embedder: 'sentence-transformers/all-MiniLM-L6-v2',
-                    dim: 384,
-                    metric: 'cosine',
-                    chunk: { size: 512, overlap: 64 },
-                },
-                dataset_file_metas: datasetFileMetas,
+            // 构建文件元信息
+            const datasetFileMetas = fileArray.map(file => ({
+                name: file.name,
+                description: `${file.name}-知识库文档`,
+                task_type: 'rag',
             }))
 
-            const data = await fetch(`${process.env.LLM_SERVER}/data/governance/rag/build/from-files`, {
-                method: 'POST',
-                body: formData,
-            })
-                .then(res => res.json())
-                .then(data => data.data as GovernanceRagResponse)
+            // 构建配置
+            const ragCfg: RagConfig = {
+                backend: 'pgvector',
+                embedder: 'sentence-transformers/all-MiniLM-L6-v2',
+                dim: 384,
+                metric: 'cosine',
+                chunk: { size: 512, overlap: 64 },
+            }
 
-            // 将 governance 数组转换为 JSONL 格式（每行一个 JSON 对象）
-            const governanceJsonl = data.answer.governance.map(item => JSON.stringify(item)).join('\n')
+            // 构建 FormData
+            const formData = governanceService.buildFormData(fileArray, datasetFileMetas, ragCfg)
 
-            // 保存文件并记录到数据库
-            const fileService = new FileService(sessionId)
-            await fileService.saveFile(
-                governanceJsonl,
-                `governance-${Date.now()}.jsonl`,
-                message.id,
-            )
+            // 调用 RAG 构建接口
+            const data = await governanceService.buildRagFromFiles(formData)
 
-            const newRag: NewRag = {
+            // 存储结果（治理文件 + RAG 记录）
+            await governanceService.storeRagResult(data, session, message.id, body.title, sessionId)
+
+            // 发送更新事件
+            eventBus.emit(`chat-${sessionId}`, await session.appendRag({
                 sessionId: session.sessionId,
                 indexVersion: data.answer.rag.artifacts.index_version,
                 content: JSON.stringify(data),
                 title: body.title,
                 messageId: message.id,
-            }
-
-            const newMessage = await session.appendRag(newRag)
-            eventBus.emit(`chat-${sessionId}`, newMessage)
+            }))
         }
 
-        doo()
+        executeRagBuild()
 
         return {
             message: 'success',
@@ -196,7 +192,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
             max_seq_len: body.train_cfg?.max_seq_len ?? DEFAULT_TRAIN_CFG.max_seq_len,
         }
 
-        const ragCfg = {
+        const ragCfg: RagConfig = {
             backend: body.rag_cfg?.backend ?? DEFAULT_RAG_CFG.backend,
             embedder: body.rag_cfg?.embedder ?? DEFAULT_RAG_CFG.embedder,
             dim: body.rag_cfg?.dim,
@@ -213,7 +209,6 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 trainStage: 1,
                 status: 'pending',
                 title: body.title,
-                // 真实数据
                 modelCode: trainCfg.base_model,
                 method: trainCfg.method,
                 architecture: 'Transformer',
@@ -224,7 +219,8 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
         eventBus.emit(`chat-${sessionId}`, message)
 
-        async function doWork() {
+        // 异步执行训练流程
+        async function executeTrainWorkflow() {
             // 阶段1 延迟 800ms
             await new Promise(resolve => setTimeout(resolve, 800))
 
@@ -236,39 +232,21 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 progress: 30,
             })
 
-            const files = body.files as File[] | File
-            const fileArray = Array.isArray(files) ? files : [files]
-
-            const formData = new FormData()
-            const datasetFileMetas = []
-            for (const file of fileArray) {
-                formData.append('dataset_files', file)
-                datasetFileMetas.push({
-                    name: file.name,
-                    description: `${file.name}-知识库文档`,
-                    task_type: 'rag',
-                    intended_use: '知识库检索',
-                })
-            }
-            formData.append('body', JSON.stringify({
-                dataset_file_metas: datasetFileMetas,
-                rag_cfg: ragCfg,
-                train_cfg: trainCfg,
-                extra_dataset_ids: ['datasets/other_docs'],
+            // 构建请求
+            const fileArray = fileToArray(body.files as File[] | File)
+            const datasetFileMetas = fileArray.map(file => ({
+                name: file.name,
+                description: `${file.name}-知识库文档`,
+                task_type: 'rag',
+                intended_use: '知识库检索',
             }))
 
-            const data = await fetch(`${process.env.LLM_SERVER}/data/governance/rag/train/from-files`, {
-                method: 'POST',
-                body: formData,
-            })
-                .then(res => res.json())
-                .then((res) => {
-                    console.log(res)
-                    return res
-                })
-                .then(data => data.data as GovernanceTrainResponse)
+            const formData = governanceService.buildFormData(fileArray, datasetFileMetas, ragCfg, trainCfg)
 
-            console.log('data', data)
+            // 调用训练接口
+            const data = await governanceService.trainFromFiles(formData)
+
+            console.log('train data:', data)
 
             // 训练完成后延迟 500ms
             await new Promise(resolve => setTimeout(resolve, 500))
@@ -284,7 +262,31 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 elapsedMs: trainData.elapsed_ms,
             })
 
-            // 存储训练结果，包含 ckpt_id 和 ckpt_uri
+            // 存储治理文件和 RAG 记录（与 /rag/:sessionId 相同的逻辑）
+            if (data.answer.governance && data.answer.governance.length > 0) {
+                await governanceService.saveGovernanceFile(
+                    data.answer.governance,
+                    sessionId,
+                    message.id,
+                )
+            }
+
+            // 存储 RAG 记录
+            if (data.answer.rag) {
+                const newRag: NewRag = {
+                    sessionId: session.sessionId,
+                    indexVersion: data.answer.rag.artifacts.index_version,
+                    content: JSON.stringify({
+                        rag: data.answer.rag,
+                        governance: data.answer.governance,
+                    }),
+                    title: `${body.title} - RAG`,
+                    messageId: message.id,
+                }
+                await session.insertRag(newRag)
+            }
+
+            // 存储训练结果
             const newTrain: NewTrain = {
                 sessionId: session.sessionId,
                 content: JSON.stringify(data),
@@ -296,9 +298,8 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
             const { trainId } = await session.appendTrain(newTrain)
 
-            // 训练完成后，主动调用注册接口注册模型
+            // 训练完成后，注册模型
             if (trainData.artifacts.ckpt_uri && trainId) {
-                // 延迟 500ms
                 await new Promise(resolve => setTimeout(resolve, 500))
 
                 // 阶段4：注册中
@@ -308,62 +309,46 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                     ragIndex: data.answer.rag?.artifacts?.index_version || '-',
                 })
 
-                try {
-                    const registerResponse = await fetch(`${process.env.LLM_SERVER}/exec/train/model/use`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model_uri: trainData.artifacts.ckpt_uri,
-                            task: 'chat',
-                            model_type: 'causal-lm',
-                            note: body.title,
-                        }),
-                    })
-                        .then(res => res.json())
+                // 注册模型
+                const registerResult = await governanceService.registerModel(
+                    trainData.artifacts.ckpt_uri,
+                    body.title,
+                )
 
-                    console.log('registerResponse', registerResponse)
-
-                    if (registerResponse.code === 0 && registerResponse.data?.answer) {
-                        const registeredModel = registerResponse.data.answer
-                        const newModel: NewModel = {
-                            sessionId: session.sessionId,
-                            messageId: message.id,
-                            trainId,
-                            externalId: registeredModel.id,
-                            modelUri: registeredModel.model_uri,
-                            task: registeredModel.task,
-                            modelType: registeredModel.model_type,
-                            note: registeredModel.note,
-                            existsLocal: registeredModel.exists_local,
-                            fileSize: registeredModel.file_size,
-                            mtime: registeredModel.mtime,
-                            externalCreatedAt: registeredModel.created_at,
-                        }
-
-                        await session.appendModel(newModel)
-
-                        // 延迟 500ms
-                        await new Promise(resolve => setTimeout(resolve, 500))
-
-                        // 阶段5：注册成功
-                        await session.updateTrainStage(message.id, 5, body.title, {
-                            modelId: registeredModel.id,
-                            version: 'v1.0.0',
-                            inferEndpoint: `/api/v1/models/${registeredModel.id}/infer`,
-                            fileSize: registeredModel.file_size,
-                            existsLocal: registeredModel.exists_local,
-                        })
+                if (registerResult.success && registerResult.data) {
+                    const registeredModel = registerResult.data
+                    const newModel: NewModel = {
+                        sessionId: session.sessionId,
+                        messageId: message.id,
+                        trainId,
+                        externalId: registeredModel.id,
+                        modelUri: registeredModel.model_uri,
+                        task: registeredModel.task,
+                        modelType: registeredModel.model_type,
+                        note: registeredModel.note,
+                        existsLocal: registeredModel.exists_local,
+                        fileSize: registeredModel.file_size,
+                        mtime: registeredModel.mtime,
+                        externalCreatedAt: registeredModel.created_at,
                     }
-                }
-                catch (err) {
-                    console.error('注册模型失败:', err)
+
+                    await session.appendModel(newModel)
+
+                    await new Promise(resolve => setTimeout(resolve, 500))
+
+                    // 阶段5：注册成功
+                    await session.updateTrainStage(message.id, 5, body.title, {
+                        modelId: registeredModel.id,
+                        version: 'v1.0.0',
+                        inferEndpoint: `/api/v1/models/${registeredModel.id}/infer`,
+                        fileSize: registeredModel.file_size,
+                        existsLocal: registeredModel.exists_local,
+                    })
                 }
             }
         }
 
-        doWork()
+        executeTrainWorkflow()
 
         return {
             message: 'success',

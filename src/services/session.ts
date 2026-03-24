@@ -107,6 +107,20 @@ export class SessionService {
         })
     }
 
+    /** 仅插入 RAG 记录（不更新消息，用于训练流程中关联 RAG） */
+    async insertRag(rag: NewRag): Promise<string | null> {
+        const result = await db.transaction(async (tx) => {
+            await tx.update(sessions)
+                .set({ lastMessageAt: new Date() })
+                .where(eq(sessions.id, this._sessionId))
+
+            const [ragRecord] = await tx.insert(rags).values(rag).returning()
+            return ragRecord?.id ?? null
+        })
+
+        return result
+    }
+
     /** 添加 Train 记录 */
     async appendTrain(train: NewTrain): Promise<{ message: SelectMessage | null, trainId: string | null }> {
         return await db.transaction(async (tx) => {
