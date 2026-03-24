@@ -262,8 +262,8 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                             externalCreatedAt: registeredModel.created_at,
                         }
 
-                        await session.appendModel(newModel)
-                        eventBus.emit(`chat-${sessionId}`, { type: 'model-registered', data: registeredModel })
+                        const modelMessage = await session.appendModel(newModel)
+                        eventBus.emit(`chat-${sessionId}`, modelMessage)
                     }
                 }
                 catch (err) {

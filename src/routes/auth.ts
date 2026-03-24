@@ -8,7 +8,7 @@ import { AuthService } from '../services/auth'
 export const authRoutes = new Elysia({ prefix: '/auth' })
     .use(AuthService)
     .post('/register', async ({ body, jwt, set }) => {
-        const { username, password } = body
+        const { username, email, password } = body
 
         // 检查用户名是否已存在
         const existingUser = await db.query.users.findFirst({
@@ -18,8 +18,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         if (existingUser) {
             set.status = 400
             return {
-                status: 'error',
-                message: 'Username already exists',
+                code: 1,
+                message: '用户名已存在',
+                data: null,
             }
         }
 
@@ -30,34 +31,38 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         })
 
         // 创建新用户
-        const newUser = await db
+        const [newUser] = await db
             .insert(users)
             .values({
                 username,
+                email,
                 password: hashedPassword,
+                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
                 createdAt: new Date(),
             })
             .returning()
 
         // 生成 JWT token
         const token = await jwt.sign({
-            id: newUser[0].id,
-            username: newUser[0].username,
+            id: newUser.id,
+            username: newUser.username,
         })
 
         return {
-            status: 'success',
-            message: 'Registered successfully',
-            token,
-            user: {
-                id: newUser[0].id,
-                username: newUser[0].username,
+            code: 0,
+            message: '注册成功',
+            data: {
+                access_token: token,
+                refresh_token: token,
+                username: newUser.username,
+                token_type: 'bearer',
             },
         }
     }, {
         body: t.Object({
-            username: t.String(),
-            password: t.String(),
+            username: t.String({ minLength: 2, maxLength: 20 }),
+            email: t.String({ format: 'email' }),
+            password: t.String({ minLength: 8 }),
         }),
         detail: {
             summary: '用户注册',
@@ -74,8 +79,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         if (!user) {
             set.status = 401
             return {
-                status: 'error',
-                message: 'Invalid username or password',
+                code: 1,
+                message: '用户名或密码错误',
+                data: null,
             }
         }
 
@@ -85,8 +91,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         if (!isValid) {
             set.status = 401
             return {
-                status: 'error',
-                message: 'Invalid username or password',
+                code: 1,
+                message: '用户名或密码错误',
+                data: null,
             }
         }
 
@@ -97,9 +104,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         })
 
         return {
-            status: 'success',
-            message: 'Logged in successfully',
-            token,
+            code: 0,
+            message: '登录成功',
             data: {
                 access_token: token,
                 refresh_token: token,
@@ -124,14 +130,16 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
         if (!fullUser) {
             return {
-                status: 'error',
-                message: 'User not found',
+                code: 1,
+                message: '用户不存在',
+                data: null,
             }
         }
 
         // 返回用户信息（不包含密码）
         return {
-            status: 'success',
+            code: 0,
+            message: 'success',
             data: {
                 id: fullUser.id,
                 username: fullUser.username,
@@ -140,7 +148,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             },
         }
     }, {
-        auth: true, // 启用认证，需要 Bearer token
+        auth: true,
         detail: {
             summary: '获取当前用户信息',
         },

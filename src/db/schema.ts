@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid'
 export const users = sqliteTable('users', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
     username: text('username').notNull().unique(),
+    email: text('email').unique(),
     password: text('password').notNull(),
     avatarUrl: text('avatar_url'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
@@ -79,11 +80,12 @@ export const trains = sqliteTable('trains', {
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 })
 
-// 注册模型
+// 注册模型 (与消息一对一关系)
 export const models = sqliteTable('models', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
     sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
-    messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    // messageId 唯一约束，确保与消息一对一关系
+    messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }).notNull().unique(),
     trainId: text('train_id').references(() => trains.id, { onDelete: 'set null' }),
     // 外部模型ID（来自LLM服务）
     externalId: text('external_id').notNull(),
@@ -175,6 +177,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
     }),
     rags: many(rags),
     trains: many(trains),
+    // 注意：虽然 models.messageId 是 unique（一对一），但 Drizzle 反向关系需用 many
     models: many(models),
     files: many(files),
 }))

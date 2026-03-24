@@ -133,16 +133,45 @@ export class SessionService {
         })
     }
 
-    /** 添加 Model 记录 */
-    async appendModel(model: NewModel) {
+    /** 添加或更新 Model 记录（一对一关系，使用 upsert） */
+    async appendModel(model: NewModel): Promise<SelectMessage | null> {
         return await db.transaction(async (tx) => {
             await tx.update(sessions)
                 .set({ lastMessageAt: new Date() })
                 .where(eq(sessions.id, this._sessionId))
 
-            const [modelRecord] = await tx.insert(models).values(model).returning()
+            // 使用 upsert：如果 messageId 已存在则更新，否则插入
+            const [modelRecord] = await tx.insert(models)
+                .values(model)
+                .onConflictDoUpdate({
+                    target: models.messageId,
+                    set: {
+                        externalId: model.externalId,
+                        modelUri: model.modelUri,
+                        task: model.task,
+                        modelType: model.modelType,
+                        note: model.note,
+                        existsLocal: model.existsLocal,
+                        fileSize: model.fileSize,
+                        mtime: model.mtime,
+                        externalCreatedAt: model.externalCreatedAt,
+                    },
+                })
+                .returning()
 
-            return modelRecord ?? null
+            const [message] = await tx.update(messages)
+                .set({
+                    content: JSON.stringify({
+                        stage: 'model-registered',
+                        status: 'success',
+                        modelId: modelRecord?.id,
+                    }),
+                    type: 'json',
+                })
+                .where(eq(messages.id, model.messageId))
+                .returning()
+
+            return message ?? null
         })
     }
 
