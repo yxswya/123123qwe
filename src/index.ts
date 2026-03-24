@@ -3,6 +3,7 @@ import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 
 import { authRoutes } from './routes/auth'
+import { canvasRoutes } from './routes/canvas'
 import { governanceRoutes } from './routes/governance'
 import { modelRoutes } from './routes/model'
 import { ragRoutes } from './routes/rag'
@@ -23,7 +24,8 @@ const app = new Elysia()
             .use(modelRoutes)
             .use(trainRoutes)
             .use(governanceRoutes)
-            .use(ragRoutes))
+            .use(ragRoutes)
+            .use(canvasRoutes))
     .listen(3002)
 
 export type App = typeof app

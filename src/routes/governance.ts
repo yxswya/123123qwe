@@ -272,6 +272,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
             }
 
             // 存储 RAG 记录
+            let ragId: string | null = null
             if (data.answer.rag) {
                 const newRag: NewRag = {
                     sessionId: session.sessionId,
@@ -283,7 +284,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                     title: `${body.title} - RAG`,
                     messageId: message.id,
                 }
-                await session.insertRag(newRag)
+                ragId = await session.insertRag(newRag)
             }
 
             // 存储训练结果
@@ -294,6 +295,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 messageId: message.id,
                 ckptId: trainData.artifacts.ckpt_id,
                 ckptUri: trainData.artifacts.ckpt_uri,
+                ragId, // 关联 RAG
             }
 
             const { trainId } = await session.appendTrain(newTrain)
@@ -321,6 +323,7 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                         sessionId: session.sessionId,
                         messageId: message.id,
                         trainId,
+                        ragId, // 关联 RAG
                         externalId: registeredModel.id,
                         modelUri: registeredModel.model_uri,
                         task: registeredModel.task,

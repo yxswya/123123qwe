@@ -74,6 +74,8 @@ export const trains = sqliteTable('trains', {
     sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+    // 关联的 RAG 知识库（一对一关系）
+    ragId: text('rag_id').references(() => rags.id, { onDelete: 'set null' }),
     ckptId: text('ckpt_id'),
     ckptUri: text('ckpt_uri'),
     content: text('content').notNull(),
@@ -87,6 +89,8 @@ export const models = sqliteTable('models', {
     // messageId 唯一约束，确保与消息一对一关系
     messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }).notNull().unique(),
     trainId: text('train_id').references(() => trains.id, { onDelete: 'set null' }),
+    // 关联的 RAG 知识库
+    ragId: text('rag_id').references(() => rags.id, { onDelete: 'set null' }),
     // 外部模型ID（来自LLM服务）
     externalId: text('external_id').notNull(),
     modelUri: text('model_uri').notNull(),
@@ -182,7 +186,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
     files: many(files),
 }))
 
-export const ragsRelations = relations(rags, ({ one }) => ({
+export const ragsRelations = relations(rags, ({ one, many }) => ({
     session: one(sessions, {
         fields: [rags.sessionId],
         references: [sessions.id],
@@ -191,6 +195,8 @@ export const ragsRelations = relations(rags, ({ one }) => ({
         fields: [rags.messageId],
         references: [messages.id],
     }),
+    trains: many(trains),
+    models: many(models),
 }))
 
 export const trainsRelations = relations(trains, ({ one, many }) => ({
@@ -201,6 +207,10 @@ export const trainsRelations = relations(trains, ({ one, many }) => ({
     message: one(messages, {
         fields: [trains.messageId],
         references: [messages.id],
+    }),
+    rag: one(rags, {
+        fields: [trains.ragId],
+        references: [rags.id],
     }),
     models: many(models),
 }))
@@ -217,6 +227,10 @@ export const modelsRelations = relations(models, ({ one }) => ({
     train: one(trains, {
         fields: [models.trainId],
         references: [trains.id],
+    }),
+    rag: one(rags, {
+        fields: [models.ragId],
+        references: [rags.id],
     }),
 }))
 

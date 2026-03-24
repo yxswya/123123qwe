@@ -7,6 +7,7 @@
         "generate": "bunx drizzle-kit generate --dialect sqlite --schema ./src/db/schema.ts",
         "migrate": "bun run ./src/db/migrate.ts",
         "dev": "bun run --watch src/index.ts",
+        "studio": "npx drizzle-kit studio --port=3000",
         "lint": "eslint ."
     },
     "dependencies": {
