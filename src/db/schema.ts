@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { nanoid } from 'nanoid'
 
 // 用户
@@ -12,31 +12,17 @@ export const users = sqliteTable('users', {
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 })
 
-// 会话
+// 会话（单聊：用户与机器人对话）
 export const sessions = sqliteTable('sessions', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
-    // 会话标题（群聊通常有名字，单聊可为空）
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     title: text('title'),
-    isGroup: integer('is_group', { mode: 'boolean' }).notNull().default(false),
     lastMessageAt: integer('last_message_at', { mode: 'timestamp_ms' }).notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 })
 
 export type NewSession = typeof sessions.$inferInsert
 export type SelectSession = typeof sessions.$inferSelect
-
-// 参与者 (多对多关联 Users 和 Sessions)
-export const participants = sqliteTable(
-    'participants',
-    {
-        sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
-        userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-        joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull(),
-    },
-    table => [
-        primaryKey({ columns: [table.sessionId, table.userId] }),
-    ],
-)
 
 // 消息
 export const messages = sqliteTable('messages', {
@@ -57,7 +43,6 @@ export type SelectMessage = typeof messages.$inferSelect
 // RAG 构建产物
 export const rags = sqliteTable('rags', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
-    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
     indexVersion: text('index_version').notNull(), // 索引版本
@@ -71,7 +56,6 @@ export type SelectRag = typeof rags.$inferSelect
 // TRAIN 模型训练产物
 export const trains = sqliteTable('trains', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
-    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     messageId: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
     // 关联的 RAG 知识库（一对一关系）
@@ -85,7 +69,6 @@ export const trains = sqliteTable('trains', {
 // 注册模型 (与消息一对一关系)
 export const models = sqliteTable('models', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
-    sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
     // messageId 唯一约束，确保与消息一对一关系
     messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }).notNull().unique(),
     trainId: text('train_id').references(() => trains.id, { onDelete: 'set null' }),
@@ -141,29 +124,19 @@ export type SelectAgent = typeof agents.$inferSelect
 // ==========================================
 
 export const usersRelations = relations(users, ({ many }) => ({
-    participants: many(participants),
+    sessions: many(sessions),
     messages: many(messages),
 }))
 
-export const sessionsRelations = relations(sessions, ({ many }) => ({
-    participants: many(participants),
-    messages: many(messages),
-    rags: many(rags),
-    trains: many(trains),
-    files: many(files),
-    agents: many(agents),
-    models: many(models),
-}))
-
-export const participantsRelations = relations(participants, ({ one }) => ({
-    session: one(sessions, {
-        fields: [participants.sessionId],
-        references: [sessions.id],
-    }),
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     user: one(users, {
-        fields: [participants.userId],
+        fields: [sessions.userId],
         references: [users.id],
     }),
+    messages: many(messages),
+    // rags、trains、models 通过 messages 间接关联，不再直接关联
+    files: many(files),
+    agents: many(agents),
 }))
 
 export const messagesRelations = relations(messages, ({ one, many }) => ({
@@ -187,10 +160,6 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
 }))
 
 export const ragsRelations = relations(rags, ({ one, many }) => ({
-    session: one(sessions, {
-        fields: [rags.sessionId],
-        references: [sessions.id],
-    }),
     message: one(messages, {
         fields: [rags.messageId],
         references: [messages.id],
@@ -200,10 +169,6 @@ export const ragsRelations = relations(rags, ({ one, many }) => ({
 }))
 
 export const trainsRelations = relations(trains, ({ one, many }) => ({
-    session: one(sessions, {
-        fields: [trains.sessionId],
-        references: [sessions.id],
-    }),
     message: one(messages, {
         fields: [trains.messageId],
         references: [messages.id],
@@ -216,10 +181,6 @@ export const trainsRelations = relations(trains, ({ one, many }) => ({
 }))
 
 export const modelsRelations = relations(models, ({ one }) => ({
-    session: one(sessions, {
-        fields: [models.sessionId],
-        references: [sessions.id],
-    }),
     message: one(messages, {
         fields: [models.messageId],
         references: [messages.id],

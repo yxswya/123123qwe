@@ -1,6 +1,6 @@
 import Elysia, { t } from 'elysia'
 import { db } from '../db'
-import { files, models, rags, sessions, trains } from '../db/schema'
+import { files, messages, models, rags, sessions, trains } from '../db/schema'
 import { AuthService } from '../services/auth'
 import { eq } from 'drizzle-orm'
 
@@ -42,14 +42,18 @@ export const canvasRoutes = new Elysia({ prefix: '/canvas' })
             type: 'session',
             title: session.title || `会话 ${session.id.slice(0, 8)}`,
             data: {
-                isGroup: session.isGroup,
+                userId: session.userId,
                 lastMessageAt: session.lastMessageAt,
             },
             createdAt: session.createdAt,
         })
 
-        // 2. 获取 RAG 记录
-        const ragRecords = await db.select().from(rags).where(eq(rags.sessionId, sessionId))
+        // 2. 获取 RAG 记录（通过 messages 表关联）
+        const ragRecords = await db.select({ rag: rags })
+            .from(rags)
+            .innerJoin(messages, eq(rags.messageId, messages.id))
+            .where(eq(messages.sessionId, sessionId))
+            .then(rows => rows.map(row => row.rag))
 
         for (const rag of ragRecords) {
             nodes.push({
@@ -72,8 +76,12 @@ export const canvasRoutes = new Elysia({ prefix: '/canvas' })
             })
         }
 
-        // 3. 获取训练记录
-        const trainRecords = await db.select().from(trains).where(eq(trains.sessionId, sessionId))
+        // 3. 获取训练记录（通过 messages 表关联）
+        const trainRecords = await db.select({ train: trains })
+            .from(trains)
+            .innerJoin(messages, eq(trains.messageId, messages.id))
+            .where(eq(messages.sessionId, sessionId))
+            .then(rows => rows.map(row => row.train))
 
         for (const train of trainRecords) {
             nodes.push({
@@ -108,8 +116,12 @@ export const canvasRoutes = new Elysia({ prefix: '/canvas' })
             }
         }
 
-        // 4. 获取模型记录
-        const modelRecords = await db.select().from(models).where(eq(models.sessionId, sessionId))
+        // 4. 获取模型记录（通过 messages 表关联）
+        const modelRecords = await db.select({ model: models })
+            .from(models)
+            .innerJoin(messages, eq(models.messageId, messages.id))
+            .where(eq(messages.sessionId, sessionId))
+            .then(rows => rows.map(row => row.model))
 
         for (const model of modelRecords) {
             nodes.push({
@@ -204,16 +216,25 @@ export const canvasRoutes = new Elysia({ prefix: '/canvas' })
                 type: 'session',
                 title: session.title || `会话 ${session.id.slice(0, 8)}`,
                 data: {
-                    isGroup: session.isGroup,
+                    userId: session.userId,
                     lastMessageAt: session.lastMessageAt,
                 },
                 createdAt: session.createdAt,
             })
 
-            // 获取该会话的统计
-            const ragCount = await db.select({ id: rags.id }).from(rags).where(eq(rags.sessionId, session.id))
-            const trainCount = await db.select({ id: trains.id }).from(trains).where(eq(trains.sessionId, session.id))
-            const modelCount = await db.select({ id: models.id }).from(models).where(eq(models.sessionId, session.id))
+            // 获取该会话的统计（通过 messages 表关联）
+            const ragCount = await db.select({ id: rags.id })
+                .from(rags)
+                .innerJoin(messages, eq(rags.messageId, messages.id))
+                .where(eq(messages.sessionId, session.id))
+            const trainCount = await db.select({ id: trains.id })
+                .from(trains)
+                .innerJoin(messages, eq(trains.messageId, messages.id))
+                .where(eq(messages.sessionId, session.id))
+            const modelCount = await db.select({ id: models.id })
+                .from(models)
+                .innerJoin(messages, eq(models.messageId, messages.id))
+                .where(eq(messages.sessionId, session.id))
             const fileCount = await db.select({ id: files.id }).from(files).where(eq(files.sessionId, session.id))
 
             // 添加统计节点

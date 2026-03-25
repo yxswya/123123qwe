@@ -2,7 +2,7 @@ import type { ModelListResponse, ModelPredictResponse } from '../types/governanc
 import { eq } from 'drizzle-orm'
 import Elysia, { t } from 'elysia'
 import { db } from '../db'
-import { models } from '../db/schema'
+import { messages, models } from '../db/schema'
 import { AuthService } from '../services/auth'
 
 export const modelRoutes = new Elysia({ prefix: '/model' })
@@ -17,11 +17,13 @@ export const modelRoutes = new Elysia({ prefix: '/model' })
     }, {
         auth: true,
     })
-    // 获取本地数据库中的模型列表
+    // 获取本地数据库中的模型列表（通过 messages 表关联）
     .get('/local/:sessionId', async ({ params: { sessionId } }) => {
-        const modelList = await db.select()
+        const modelList = await db.select({ model: models })
             .from(models)
-            .where(eq(models.sessionId, sessionId))
+            .innerJoin(messages, eq(models.messageId, messages.id))
+            .where(eq(messages.sessionId, sessionId))
+            .then(rows => rows.map(row => row.model))
 
         return {
             code: 0,

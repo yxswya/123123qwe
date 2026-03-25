@@ -153,7 +153,6 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
             // 发送更新事件
             eventBus.emit(`chat-${sessionId}`, await session.appendRag({
-                sessionId: session.sessionId,
                 indexVersion: data.answer.rag.artifacts.index_version,
                 content: JSON.stringify(data),
                 title: body.title,
@@ -275,7 +274,6 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
             let ragId: string | null = null
             if (data.answer.rag) {
                 const newRag: NewRag = {
-                    sessionId: session.sessionId,
                     indexVersion: data.answer.rag.artifacts.index_version,
                     content: JSON.stringify({
                         rag: data.answer.rag,
@@ -289,7 +287,6 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
 
             // 存储训练结果
             const newTrain: NewTrain = {
-                sessionId: session.sessionId,
                 content: JSON.stringify(data),
                 title: body.title,
                 messageId: message.id,
@@ -320,7 +317,6 @@ export const governanceRoutes = new Elysia({ prefix: '/governance' })
                 if (registerResult.success && registerResult.data) {
                     const registeredModel = registerResult.data
                     const newModel: NewModel = {
-                        sessionId: session.sessionId,
                         messageId: message.id,
                         trainId,
                         ragId, // 关联 RAG

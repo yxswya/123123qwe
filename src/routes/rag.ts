@@ -5,7 +5,7 @@ import type { RagAnswerResponse, RagBuildResponse } from '../types/rag'
 import { eq } from 'drizzle-orm'
 import Elysia, { sse, t } from 'elysia'
 import { db } from '../db'
-import { rags } from '../db/schema'
+import { messages, rags } from '../db/schema'
 import { AuthService } from '../services/auth'
 // import { SessionService } from '../services/session'
 
@@ -14,11 +14,13 @@ import { AuthService } from '../services/auth'
 
 export const ragRoutes = new Elysia({ prefix: '/rag' })
     .use(AuthService)
-    // 获取本地数据库中的 RAG 列表
+    // 获取本地数据库中的 RAG 列表（通过 messages 表关联）
     .get('/local/:sessionId', async ({ params: { sessionId } }) => {
-        const ragList = await db.select()
+        const ragList = await db.select({ rag: rags })
             .from(rags)
-            .where(eq(rags.sessionId, sessionId))
+            .innerJoin(messages, eq(rags.messageId, messages.id))
+            .where(eq(messages.sessionId, sessionId))
+            .then(rows => rows.map(row => row.rag))
 
         return {
             code: 0,

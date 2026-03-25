@@ -63,8 +63,8 @@ export class SessionService {
 
         this._session = await this._config.sessionRepo.create({
             id: this._sessionId,
+            userId: this._userId,
             title: `单聊-${Date.now()}`,
-            isGroup: false,
             lastMessageAt: new Date(),
             createdAt: new Date(),
         })

@@ -117,9 +117,8 @@ export class GovernanceService {
         // 保存治理文件
         await this.saveGovernanceFile(data.answer.governance, sessionId, messageId)
 
-        // 存储 RAG 记录
+        // 存储 RAG 记录（不再需要 sessionId，通过 messageId 关联）
         const newRag: NewRag = {
-            sessionId: session.sessionId,
             indexVersion: data.answer.rag.artifacts.index_version,
             content: JSON.stringify(data),
             title,
@@ -149,9 +148,8 @@ export class GovernanceService {
             await this.saveGovernanceFile(data.answer.governance, sessionId, messageId)
         }
 
-        // 存储 RAG 记录
+        // 存储 RAG 记录（不再需要 sessionId，通过 messageId 关联）
         const newRag: NewRag = {
-            sessionId: session.sessionId,
             indexVersion: data.answer.rag.artifacts.index_version,
             content: JSON.stringify({
                 rag: data.answer.rag,
