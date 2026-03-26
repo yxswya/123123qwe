@@ -1,7 +1,8 @@
-import type { NewRag } from '../db/schema'
+import type { NewRag, SelectSession } from '../db/schema'
 import type { GovernanceRagResponse, GovernanceTrainResponse } from '../types/governance'
 import type { SessionService } from './session'
 import { FileService } from './file'
+import { appendRag } from './session'
 
 /**
  * RAG 配置
@@ -109,7 +110,7 @@ export class GovernanceService {
      */
     async storeRagResult(
         data: GovernanceRagResponse,
-        session: SessionService,
+        session: SelectSession,
         messageId: string,
         title: string,
         sessionId: string,
@@ -125,7 +126,7 @@ export class GovernanceService {
             messageId,
         }
 
-        await session.appendRag(newRag)
+        await appendRag(session, newRag)
     }
 
     /**

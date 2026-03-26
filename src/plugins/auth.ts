@@ -2,7 +2,7 @@ import { bearer } from '@elysiajs/bearer'
 import { jwt } from '@elysiajs/jwt'
 import Elysia from 'elysia'
 
-export const AuthService = new Elysia({ name: 'Auth.Service' })
+export const AuthPlugin = new Elysia({ name: 'Auth.Plugin' })
     .use(
         jwt({
             name: 'jwt',

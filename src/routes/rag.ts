@@ -6,14 +6,14 @@ import { eq } from 'drizzle-orm'
 import Elysia, { sse, t } from 'elysia'
 import { db } from '../db'
 import { messages, rags } from '../db/schema'
-import { AuthService } from '../services/auth'
+import { AuthPlugin } from '../plugins/auth'
 // import { SessionService } from '../services/session'
 
 // 2MB 阈值 区分同步或异步的阈值
 // const SIZE_THRESHOLD = 2 * 1024 * 1024
 
 export const ragRoutes = new Elysia({ prefix: '/rag' })
-    .use(AuthService)
+    .use(AuthPlugin)
     // 获取本地数据库中的 RAG 列表（通过 messages 表关联）
     .get('/local/:sessionId', async ({ params: { sessionId } }) => {
         const ragList = await db.select({ rag: rags })

@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import path, { join } from 'node:path'
 import Elysia, { t } from 'elysia'
-import { AuthService } from '../services/auth'
+import { AuthPlugin } from '../plugins/auth'
 
 const UPLOADS_DIR = path.join(path.resolve(), 'uploads')
 async function ensureUploadDir() {
@@ -15,7 +15,7 @@ async function ensureUploadDir() {
 ensureUploadDir()
 
 export const uploadRoutes = new Elysia({ prefix: '/upload' })
-    .use(AuthService)
+    .use(AuthPlugin)
     .post('/', async ({ body }) => {
         const uploadedFiles: string[] = []
         const files = body.files as File[] | File

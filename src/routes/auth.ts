@@ -3,10 +3,10 @@ import { Elysia, t } from 'elysia'
 
 import { db } from '../db'
 import { users } from '../db/schema'
-import { AuthService } from '../services/auth'
+import { AuthPlugin } from '../plugins/auth'
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
-    .use(AuthService)
+    .use(AuthPlugin)
     .post('/register', async ({ body, jwt, set }) => {
         const { username, email, password } = body
 

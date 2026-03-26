@@ -1,8 +1,19 @@
+import { eq } from 'drizzle-orm'
 import Elysia, { t } from 'elysia'
-import { AuthService } from '../services/auth'
+import { db } from '../db'
+import { sessions } from '../db/schema'
+import { AuthPlugin } from '../plugins/auth'
 
 export const trainRoutes = new Elysia({ prefix: '/train' })
-    .use(AuthService)
+    .use(AuthPlugin)
+    .derive(async ({ params: { sessionId }, set }) => {
+        const session = await db.select().from(sessions).where(eq(sessions.id, sessionId))
+        if (!session) {
+            set.status = 404
+            throw new Error('会话不存在，无法开始训练')
+        }
+        return { session } // 后续所有路由都能直接拿到 session 对象
+    })
     .post('/start', async ({ body }) => {
         const files = body.files as File[] | File
         const fileArray = Array.isArray(files) ? files : [files]
@@ -62,32 +73,34 @@ export const trainRoutes = new Elysia({ prefix: '/train' })
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ train_cfg: {
-                dataset_uri: 'file://indices\\idx_2e8dc59f',
-                base_model: 'Qwen/Qwen2-0.5B',
-                method: 'sft',
-            } }),
-        }).then(res => res.json())
-    })
-    .post('/chat/:ckpt_id', async ({ params: { ckpt_id }, body }) => {
-        const result = await fetch(`${process.env.LLM_SERVER}/chat/model/start`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
-                model_id: ckpt_id,
-                system_prompt: '你是一个智能客服助手',
-                max_history: 10,
+                train_cfg: {
+                    dataset_uri: 'file://indices\\idx_2e8dc59f',
+                    base_model: 'Qwen/Qwen2-0.5B',
+                    method: 'sft',
+                },
             }),
         }).then(res => res.json())
-
-        return result.data as any
-    }, {
-        params: t.Object({
-            ckpt_id: t.String(),
-        }),
-        body: t.Object({
-            text: t.String({}),
-        }),
     })
+    // .post('/chat/:ckpt_id', async ({ params: { ckpt_id }, body }) => {
+    //     const result = await fetch(`${process.env.LLM_SERVER}/chat/model/start`, {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json',
+    //         },
+    //         body: JSON.stringify({
+    //             model_id: ckpt_id,
+    //             system_prompt: '你是一个智能客服助手',
+    //             max_history: 10,
+    //         }),
+    //     }).then(res => res.json())
+
+//     return result.data as any
+// }, {
+//     params: t.Object({
+//         ckpt_id: t.String(),
+//     }),
+//     body: t.Object({
+//         text: t.String({}),
+//     }),
+// })

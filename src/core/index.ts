@@ -1,29 +1,7 @@
+import type { GovernanceResponse } from '../types/governance'
 import type { ApiResponse, Success } from '../types/response'
-
-const LLM_SERVER = process.env.LLM_SERVER
-if (!LLM_SERVER) {
-    throw new Error('LLM_SERVER environment variable is required')
-}
-
-const BASE_URL = `${LLM_SERVER}`
-
-type RequestBody = Record<string, unknown> | FormData | string
-
-async function request<T>(endpoint: string, body: RequestBody): Promise<T> {
-    const isFormData = body instanceof FormData
-
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: isFormData ? {} : { 'Content-Type': 'application/json' },
-        body: isFormData ? body as FormData : JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return response.json() as T
-}
+import { fileToArray } from '../utils/common'
+import { request } from '../utils/request'
 
 // 意图识别接口
 export async function parsePipeline(sessionId: string, text: string): Promise<Success<ApiResponse>> {
@@ -33,4 +11,18 @@ export async function parsePipeline(sessionId: string, text: string): Promise<Su
         content: text,
         run_quality_check: false,
     })
+}
+
+// 数据治理
+// rag (pdf, docx, md, txt, json, jsonl)
+// training (csv, jsonl, json, txt, xlsx, xls)
+export async function governanceData(files: File[], taskType: 'rag' | 'training' = 'rag') {
+    const formData = new FormData()
+
+    for (const file of fileToArray(files)) {
+        formData.append('files', file)
+    }
+    formData.append('task_type', taskType)
+
+    return request<GovernanceResponse>('/governance/process/batch/enhanced', formData)
 }

@@ -3,10 +3,10 @@ import { eq } from 'drizzle-orm'
 import Elysia, { t } from 'elysia'
 import { db } from '../db'
 import { messages, models } from '../db/schema'
-import { AuthService } from '../services/auth'
+import { AuthPlugin } from '../plugins/auth'
 
 export const modelRoutes = new Elysia({ prefix: '/model' })
-    .use(AuthService)
+    .use(AuthPlugin)
     // 获取已注册的模型列表
     .get('/list', async () => {
         const data = await fetch(`${process.env.LLM_SERVER}/exec/train/model/list`)

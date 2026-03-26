@@ -2,7 +2,6 @@ import type { EventEmitter } from 'node:events'
 import type { NewMessage, NewModel, NewRag, NewTrain, SelectMessage, SelectSession } from '../db/schema'
 import type { IMessageRepository, ISessionRepository } from '../repositories'
 
-import type { ApiResponse } from '../types/response'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db'
@@ -70,41 +69,6 @@ export class SessionService {
         })
 
         return this._session
-    }
-
-    /** 发送聊天消息 */
-    async chat(text: string): Promise<SelectMessage[]> {
-        const result: SelectMessage[] = []
-
-        result.push(await this.appendUserMessage(text))
-        result.push(await this.appendAssistantMessage())
-
-        return result
-    }
-
-    /** 添加 RAG 记录 */
-    async appendRag(rag: NewRag): Promise<SelectMessage | null> {
-        return await db.transaction(async (tx) => {
-            await tx.update(sessions)
-                .set({ lastMessageAt: new Date() })
-                .where(eq(sessions.id, this._sessionId))
-
-            await tx.insert(rags).values(rag)
-
-            const [message] = await tx.update(messages)
-                .set({
-                    content: JSON.stringify({
-                        stage: 'rag-build-index',
-                        status: 'success',
-                        title: rag.title,
-                    }),
-                    type: 'json',
-                })
-                .where(eq(messages.id, rag.messageId))
-                .returning()
-
-            return message ?? null
-        })
     }
 
     /** 仅插入 RAG 记录（不更新消息，用于训练流程中关联 RAG） */
@@ -224,88 +188,6 @@ export class SessionService {
         })
     }
 
-    /** 添加助手消息 */
-    async appendAssistantMessage(message?: NewMessage): Promise<SelectMessage> {
-        const defaultMessage: NewMessage = message ?? {
-            sessionId: this._sessionId,
-            senderId: 'system-bot-id',
-            content: '',
-            status: 'sending',
-            type: 'text',
-        }
-
-        return await db.transaction(async (tx) => {
-            const [newMessage] = await tx.insert(messages).values(defaultMessage).returning()
-
-            await tx.update(sessions)
-                .set({ lastMessageAt: new Date() })
-                .where(eq(sessions.id, this._sessionId))
-
-            this._config.eventEmitter.emit(`chat-${this._sessionId}`, newMessage)
-
-            return newMessage
-        })
-    }
-
-    /** 更新助手消息 */
-    async updateAssistantMessage(
-        assistantMessage: SelectMessage,
-        response: ApiResponse,
-    ): Promise<SelectMessage> {
-        const content = JSON.stringify(response)
-
-        return await db.transaction(async (tx) => {
-            const [updatedMessage] = await tx.update(messages)
-                .set({
-                    content,
-                    type: 'json',
-                    status: 'success',
-                })
-                .where(eq(messages.id, assistantMessage.id))
-                .returning()
-
-            if (!updatedMessage) {
-                throw new Error(`Message with id ${assistantMessage.id} not found`)
-            }
-
-            await tx.update(sessions)
-                .set({ lastMessageAt: new Date() })
-                .where(eq(sessions.id, this._sessionId))
-
-            return updatedMessage
-        })
-    }
-
-    /** 接收并处理响应消息 */
-    async receiveResponseMessage(
-        assistantMessage: SelectMessage,
-        response: ApiResponse,
-    ): Promise<SelectMessage[]> {
-        const updatedMessage = await this.updateAssistantMessage(assistantMessage, response)
-        return [updatedMessage]
-    }
-
-    /** 添加用户消息 */
-    async appendUserMessage(content: string): Promise<SelectMessage> {
-        return await db.transaction(async (tx) => {
-            const [newMessage] = await tx.insert(messages)
-                .values({
-                    sessionId: this._sessionId,
-                    senderId: this._userId,
-                    content,
-                })
-                .returning()
-
-            await tx.update(sessions)
-                .set({ lastMessageAt: new Date() })
-                .where(eq(sessions.id, this._sessionId))
-
-            this._config.eventEmitter.emit(`chat-${this._sessionId}`, newMessage)
-
-            return newMessage
-        })
-    }
-
     private getDefaultConfig(): SessionServiceConfig {
         return {
             sessionRepo: new SessionRepository(db),
@@ -313,4 +195,127 @@ export class SessionService {
             eventEmitter: eventBus,
         }
     }
+}
+
+export async function chat(session: SelectSession, text: string): Promise<SelectMessage> {
+    await appendUserMessage(session, text)
+    return await appendAssistantMessage(session)
+}
+/** 添加用户消息 */
+
+export async function appendUserMessage(session: SelectSession, content: string): Promise<SelectMessage> {
+    return await db.transaction(async (tx) => {
+        const [newMessage] = await tx.insert(messages)
+            .values({
+                sessionId: session.id,
+                senderId: session.userId,
+                content,
+            })
+            .returning()
+
+        await tx.update(sessions)
+            .set({ lastMessageAt: new Date() })
+            .where(eq(sessions.id, session.id))
+
+        eventBus.emit(`chat-${session.id}`, newMessage)
+
+        return newMessage
+    })
+}
+
+/** 添加助手消息 */
+export async function appendAssistantMessage(session: SelectSession, message?: NewMessage): Promise<SelectMessage> {
+    const defaultMessage: NewMessage = message ?? {
+        sessionId: session.id,
+        senderId: 'system-bot-id',
+        content: '',
+        status: 'sending',
+        type: 'text',
+    }
+
+    return await db.transaction(async (tx) => {
+        const [newMessage] = await tx
+            .insert(messages)
+            .values(defaultMessage)
+            .returning()
+
+        await tx.update(sessions)
+            .set({ lastMessageAt: new Date() })
+            .where(eq(sessions.id, session.id))
+
+        eventBus.emit(`chat-${session.id}`, newMessage)
+
+        return newMessage
+    })
+}
+
+/** 更新助手消息 */
+export async function updateAssistantMessage(
+    session: SelectSession,
+    messageId: string,
+    response: any,
+): Promise<SelectMessage> {
+    const content = JSON.stringify(response)
+
+    return await db.transaction(async (tx) => {
+        const [updatedMessage] = await tx.update(messages)
+            .set({
+                content,
+                type: 'json',
+                status: 'success',
+            })
+            .where(eq(messages.id, messageId))
+            .returning()
+
+        if (!updatedMessage) {
+            throw new Error(`Message with id ${messageId} not found`)
+        }
+
+        await tx.update(sessions)
+            .set({ lastMessageAt: new Date() })
+            .where(eq(sessions.id, session.id))
+
+        eventBus.emit(`chat-${session.id}`, updatedMessage)
+
+        return updatedMessage
+    })
+}
+
+/** 添加 RAG 记录 */
+export async function appendRag(session: SelectSession, rag: NewRag) {
+    await db.transaction(async (tx) => {
+        await tx.update(sessions)
+            .set({ lastMessageAt: new Date() })
+            .where(eq(sessions.id, session.id))
+
+        await tx.insert(rags).values(rag)
+
+        await updateAssistantMessage(session, rag.messageId, {
+            stage: 'rag-build-index',
+            status: 'success',
+            title: rag.title,
+        })
+    })
+}
+
+/** 确保会话存在，如果不存在则创建 */
+export async function ensureSession(): Promise<SelectSession> {
+    const existingSession = await db.insert(sessions).values({
+
+    }).returning()
+
+    if (existingSession) {
+        this._session = existingSession
+        return existingSession
+    }
+
+    this._session = await this._config.sessionRepo.create({
+        id: this._sessionId,
+        userId: this._userId,
+        title: `单聊-${Date.now()}`,
+        lastMessageAt: new Date(),
+        createdAt: new Date(),
+    })
+
+    return this._session
 }

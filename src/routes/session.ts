@@ -1,28 +1,25 @@
 import type { SSEPayload } from 'elysia'
+import type { SelectSession } from '../db/schema'
 import Elysia, { sse, t } from 'elysia'
 import { parsePipeline } from '../core'
 import { db } from '../db'
+import { AuthPlugin } from '../plugins/auth'
+import { SessionPlugin } from '../plugins/session'
 import { SessionRepository } from '../repositories'
-import { AuthService } from '../services/auth'
-import { SessionService } from '../services/session'
+import { chat, updateAssistantMessage } from '../services/session'
 import eventBus from '../utils/event-bus'
 
 const sessionRepo = new SessionRepository(db)
 
 export const sessionRoutes = new Elysia({ prefix: '/session' })
-    .use(AuthService)
-    .post('/chat/:sessionId?', async ({ body, user, params: { sessionId } }) => {
-        const session = new SessionService(user.username, sessionId)
-        await session.ensureSession()
-
-        // 后台处理聊天，不阻塞响应
+    .use(AuthPlugin)
+    .use(SessionPlugin)
+    .post('/chat/:sessionId?', async ({ body, session }) => {
         processChat(session, body.text).catch((error) => {
             console.error('[Chat Error]', error)
         })
 
-        return {
-            sessionId: session.sessionId,
-        }
+        return { sessionId: session.id }
     }, {
         params: t.Object({
             sessionId: t.Optional(t.String()),
@@ -48,7 +45,8 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
         auth: true,
     })
     .get('/chat', () => {
-        return sessionRepo.findAll()
+        // return sessionRepo.findAll()
+        return []
     }, {
         auth: true,
     })
@@ -124,20 +122,14 @@ export const sessionRoutes = new Elysia({ prefix: '/session' })
  * 2. 调用第三方接口获取响应
  * 3. 更新助手消息内容
  */
-async function processChat(session: SessionService, text: string): Promise<void> {
-    const [_, assistantMessage] = await session.chat(text)
+async function processChat(session: SelectSession, text: string): Promise<void> {
+    const assistantMessage = await chat(session, text)
 
     try {
-        const result = await parsePipeline(session.sessionId, text)
-        const updatedMessages = await session.receiveResponseMessage(assistantMessage, result.data)
-
-        // 发送更新后的消息
-        for (const message of updatedMessages) {
-            eventBus.emit(`chat-${session.sessionId}`, message)
-        }
+        const result = await parsePipeline(session.id, text)
+        await updateAssistantMessage(session, assistantMessage.id, result.data)
     }
     catch (error) {
-        // TODO: 更新助手消息状态为 'error'，通知客户端
         console.error('[ParsePipeline Error]', error)
         throw error
     }

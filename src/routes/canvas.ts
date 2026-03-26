@@ -1,7 +1,7 @@
 import Elysia, { t } from 'elysia'
 import { db } from '../db'
 import { files, messages, models, rags, sessions, trains } from '../db/schema'
-import { AuthService } from '../services/auth'
+import { AuthPlugin } from '../plugins/auth'
 import { eq } from 'drizzle-orm'
 
 export interface CanvasNode {
@@ -26,7 +26,7 @@ export interface CanvasGraph {
 }
 
 export const canvasRoutes = new Elysia({ prefix: '/canvas' })
-    .use(AuthService)
+    .use(AuthPlugin)
     .get('/graph/:sessionId', async ({ params: { sessionId } }) => {
         const nodes: CanvasNode[] = []
         const edges: CanvasEdge[] = []

@@ -18,7 +18,7 @@ export const sessions = sqliteTable('sessions', {
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     title: text('title'),
     lastMessageAt: integer('last_message_at', { mode: 'timestamp_ms' }).notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 })
 
 export type NewSession = typeof sessions.$inferInsert
@@ -69,6 +69,7 @@ export const trains = sqliteTable('trains', {
 // 注册模型 (与消息一对一关系)
 export const models = sqliteTable('models', {
     id: text('id').$defaultFn(() => nanoid()).primaryKey(),
+    title: text('title').notNull(),
     // messageId 唯一约束，确保与消息一对一关系
     messageId: text('message_id').references(() => messages.id, { onDelete: 'set null' }).notNull().unique(),
     trainId: text('train_id').references(() => trains.id, { onDelete: 'set null' }),
