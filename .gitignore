@@ -54,3 +54,6 @@ sqlite.db
 
 # cache
 uploads/
+
+# out
+server.exe

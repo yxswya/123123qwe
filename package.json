@@ -4,10 +4,11 @@
     "version": "1.0.50",
     "module": "src/index.js",
     "scripts": {
+        "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --outfile server src/index.ts",
         "generate": "bunx drizzle-kit generate --dialect sqlite --schema ./src/db/schema.ts",
         "migrate": "bun run ./src/db/migrate.ts",
+        "db": "bun run generate && bun run migrate",
         "dev": "bun run --watch src/index.ts",
-        "studio": "npx drizzle-kit studio --port=3000",
         "lint": "eslint ."
     },
     "dependencies": {

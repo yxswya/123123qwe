@@ -26,7 +26,7 @@ const app = new Elysia()
             .use(governanceRoutes)
             .use(ragRoutes)
             .use(canvasRoutes))
-    .listen(3002)
+    .listen(3010)
 
 export type App = typeof app
 
